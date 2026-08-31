@@ -216,7 +216,7 @@ if not st.session_state['acceso_concedido']:
                         st.rerun()
                     else:
                         st.session_state['intentos_fallidos'] += 1
-                        st.error(f"❌ Llave incorrecta. Intentos restantes: {3 - st.session_state['intentos_fallidos']}")
+                        st.error("❌ Llave incorrecta. Verifique sus credenciales.")
     st.stop()
 
 # -----------------------------------------------------------------
@@ -305,11 +305,17 @@ else:
                     es_mio = msg.get('remitente') == st.session_state['usuario_actual']
                     estilo = "chat-bubble-user" if es_mio else "chat-bubble-other"
                     
-                    st.markdown(f"""
+                    remitente_txt = msg.get('remitente', 'Desconocido')
+                    timestamp_txt = msg.get('timestamp', '')
+                    ip_txt = msg.get('ip', '')
+                    texto_msg = msg.get('texto', '')
+                    
+                    html_msg = f"""
                         <div class="{estilo}">
-                            <small style="color: #94a3b8;"><b>{msg.get('remitente')}</b> • {msg.get('timestamp')} • 🌐 {msg.get('ip')}</small><br>
-                            <span style="font-size: 1.15em; word-break: break-all;">{msg.get('texto')}</span>
-                    """, unsafe_allow_html=True)
+                            <small style="color: #94a3b8;"><b>{remitente_txt}</b> • {timestamp_txt} • 🌐 {ip_txt}</small><br>
+                            <span style="font-size: 1.15em; word-break: break-all;">{texto_msg}</span>
+                    """
+                    st.markdown(html_msg, unsafe_allow_html=True)
                     
                     if msg.get('archivo'):
                         try:
@@ -330,7 +336,7 @@ else:
                 st.info("Canal sincronizado. Envía tu primer mensaje o archivo multimedia.")
 
         with st.form(key='whatsapp_form', clear_on_submit=True):
-            texto_msg = st.text_area("Escribir mensaje...", height=70, label_visibility="collapsed")
+            texto_msg_input = st.text_area("Escribir mensaje...", height=70, label_visibility="collapsed")
             col_file, col_btn = st.columns([3, 1])
             with col_file:
                 archivo_adjunto = st.file_uploader("Soporte Multimedia", type=['png', 'jpg', 'jpeg', 'mp4', 'mov', 'mp3', 'wav', 'pdf', 'zip'], label_visibility="collapsed")
@@ -338,7 +344,7 @@ else:
                 enviar = st.form_submit_button("Enviar 🚀", use_container_width=True)
                 
             if enviar:
-                if texto_msg or archivo_adjunto:
+                if texto_msg_input or archivo_adjunto:
                     b64_file = ""
                     tipo_mime = ""
                     if archivo_adjunto:
@@ -346,7 +352,7 @@ else:
                         tipo_mime = archivo_adjunto.type
                     
                     meta = obtener_metadatos_red()
-                    enviar_mensaje_db(st.session_state['usuario_actual'], texto_msg if texto_msg else "[Archivo Multimedia Compartido]", b64_file, tipo_mime, meta)
+                    enviar_mensaje_db(st.session_state['usuario_actual'], texto_msg_input if texto_msg_input else "[Archivo Multimedia Compartido]", b64_file, tipo_mime, meta)
                     st.rerun()
 
     # MÓDULO: INTELIGENCIA OSINT, REDES Y METADATOS
@@ -419,9 +425,4 @@ else:
                 with col1:
                     if 'foto' in datos and datos['foto']:
                         try:
-                            st.image(base64.b64decode(datos['foto']), width=160, caption="Biometría Facial")
-                        except Exception:
-                            st.write("Imagen no disponible")
-                with col2:
-                    st.markdown(f"**Nombre:** {datos.get('nombre')}")
-                    st.markdown(f"**C
+                            st.image(base64.b64decode(datos['foto']), width=160, caption="Bio
