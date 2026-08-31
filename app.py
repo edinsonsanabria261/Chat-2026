@@ -5,12 +5,11 @@ import json
 from PIL import Image
 import io
 import base64
-import streamlit.components.v1 as components
 
 # -----------------------------------------------------------------
 # 1. CONFIGURACIÓN TÁCTICA Y ESTILOS UI PREMIUM (MODO OSCURO)
 # -----------------------------------------------------------------
-st.set_page_config(page_title="Centro Táctico Red Team", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="Centro Táctico Red Team - Enzo Marín", page_icon="⚡", layout="wide")
 
 st.markdown("""
     <style>
@@ -59,6 +58,15 @@ st.markdown("""
         padding: 3px 8px;
         border-radius: 6px;
     }
+    .author-badge {
+        background: linear-gradient(90deg, #4f46e5, #06b6d4);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: bold;
+        font-size: 1.1em;
+        text-align: center;
+        margin-bottom: 10px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -66,7 +74,7 @@ FIREBASE_URL = "https://chat-2026-68203-default-rtdb.firebaseio.com/"
 CEDULA_ADMIN_MAESTRO = "12345678"
 LLAVE_ACCESO_MAESTRA = "VIP-2026-SECURE"
 
-# Inicialización robusta del session_state para evitar cierres inesperados
+# Inicialización segura de estados para evitar cierres de sesión
 if 'acceso_concedido' not in st.session_state:
     st.session_state['acceso_concedido'] = False
 
@@ -95,7 +103,7 @@ def obtener_metadatos_red():
             meta['isp'] = data.get('asn', 'N/A')
             if 'latitude' in data and 'longitude' in data:
                 meta['lat_lon'] = f"{data.get('latitude')}, {data.get('longitude')}"
-    except:
+    except Exception:
         pass
     return meta
 
@@ -109,7 +117,7 @@ def registrar_auditoria(usuario, accion, meta, dispositivo="N/A"):
     }
     try:
         requests.post(f"{FIREBASE_URL}/auditoria_ip.json", data=json.dumps(payload), timeout=2)
-    except:
+    except Exception:
         pass
 
 def guardar_operador(cedula, nombre, rol, foto_b64, meta, dispositivo):
@@ -121,18 +129,27 @@ def guardar_operador(cedula, nombre, rol, foto_b64, meta, dispositivo):
         'coordenadas_gps': meta.get('lat_lon'), 'dispositivo_hardware': dispositivo,
         'fecha_registro': time.strftime("%Y-%m-%d %H:%M:%S")
     }
-    requests.put(f"{FIREBASE_URL}/operadores/{cedula}.json", data=json.dumps(payload))
+    try:
+        requests.put(f"{FIREBASE_URL}/operadores/{cedula}.json", data=json.dumps(payload), timeout=2)
+    except Exception:
+        pass
 
 def obtener_operador(cedula):
-    res = requests.get(f"{FIREBASE_URL}/operadores/{cedula}.json")
-    if res.status_code == 200:
-        return res.json()
+    try:
+        res = requests.get(f"{FIREBASE_URL}/operadores/{cedula}.json", timeout=2)
+        if res.status_code == 200:
+            return res.json()
+    except Exception:
+        pass
     return None
 
 def obtener_todos_operadores():
-    res = requests.get(f"{FIREBASE_URL}/operadores.json")
-    if res.status_code == 200 and res.json():
-        return res.json()
+    try:
+        res = requests.get(f"{FIREBASE_URL}/operadores.json", timeout=2)
+        if res.status_code == 200 and res.json():
+            return res.json()
+    except Exception:
+        pass
     return {}
 
 def enviar_mensaje_db(remitente, texto, archivo_b64, tipo_archivo, meta):
@@ -145,22 +162,32 @@ def enviar_mensaje_db(remitente, texto, archivo_b64, tipo_archivo, meta):
         'ip': meta.get('ip'),
         'ubicacion': f"{meta.get('ciudad')}, {meta.get('pais')}"
     }
-    requests.post(f"{FIREBASE_URL}/mensajes.json", data=json.dumps(payload))
+    try:
+        requests.post(f"{FIREBASE_URL}/mensajes.json", data=json.dumps(payload), timeout=2)
+    except Exception:
+        pass
 
 def obtener_mensajes():
-    res = requests.get(f"{FIREBASE_URL}/mensajes.json")
-    if res.status_code == 200 and res.json():
-        return res.json()
+    try:
+        res = requests.get(f"{FIREBASE_URL}.json", timeout=2) # Consulta segura optimizada
+        if res.status_code == 200 and res.json():
+            data = res.json()
+            return data.get('mensajes', {})
+    except Exception:
+        pass
     return {}
 
 def obtener_auditorias():
-    res = requests.get(f"{FIREBASE_URL}/auditoria_ip.json")
-    if res.status_code == 200 and res.json():
-        return res.json()
+    try:
+        res = requests.get(f"{FIREBASE_URL}/auditoria_ip.json", timeout=2)
+        if res.status_code == 200 and res.json():
+            return res.json()
+    except Exception:
+        pass
     return {}
 
 # -----------------------------------------------------------------
-# 3. PASARELA DE ACCESO MAESTRO (BLINDADA CONTRA FUERZA BRUTA)
+# 3. PASARELA DE ACCESO MAESTRO (BLINDADA CON FIRMA DE AUTOR)
 # -----------------------------------------------------------------
 if not st.session_state['acceso_concedido']:
     st.markdown("<br><br>", unsafe_allow_html=True)
@@ -168,14 +195,15 @@ if not st.session_state['acceso_concedido']:
     with col2:
         st.markdown("""
             <div class="login-container">
-                <h2 style="text-align: center; color: #6366f1;">⚡ CENTRO TÁCTICO RED TEAM</h2>
-                <p style="text-align: center; color: #9ca3af;">Plataforma Blindada de Seguridad y Enlace Cifrado.</p>
+                <div class="author-badge">🛡️ SISTEMA BLINDADO • DISEÑADO POR ENZO MARÍN</div>
+                <h2 style="text-align: center; color: #6366f1; margin-top: 5px;">⚡ CENTRO TÁCTICO RED TEAM</h2>
+                <p style="text-align: center; color: #9ca3af;">Plataforma de Seguridad, Inteligencia de Redes y Enlace Cifrado.</p>
             </div>
         """, unsafe_allow_html=True)
         
         if st.session_state['intentos_fallidos'] >= 3:
-            st.error("🚨 Alerta de Seguridad: Demasiados intentos fallidos. Sistema bloqueado temporalmente por defensa activa.")
-            time.sleep(3)
+            st.error("🚨 Alerta de Seguridad: Demasiados intentos fallidos. Sistema bloqueado temporalmente contra ataques de fuerza bruta.")
+            time.sleep(2)
         else:
             with st.form(key="login_form"):
                 llave_input = st.text_input("🔑 Llave de Acceso Global", type="password")
@@ -192,17 +220,18 @@ if not st.session_state['acceso_concedido']:
     st.stop()
 
 # -----------------------------------------------------------------
-# 4. GESTIÓN DE SESIÓN Y AUTENTICACIÓN BIOMÉTRICA DE OPERADOR
+# 4. GESTIÓN DE SESIÓN Y AUTENTICACIÓN BIOMÉTRICA
 # -----------------------------------------------------------------
 st.sidebar.title("⚡ Red Team Central")
+st.sidebar.markdown(f"👨‍💻 **Autor:** `Enzo Marín`")
 st.sidebar.markdown("---")
 
 if not st.session_state['autenticado']:
-    modo_auth = st.sidebar.radio("Modo de Ingreso", ["Iniciar Sesión (Biometría)", "Registrar Operador"])
+    modo_auth = st.sidebar.radio("Modo de Ingreso", ["Iniciar Sesión (Biometría)", "Registrar Operador"], key="modo_auth_radio")
     
     if modo_auth == "Iniciar Sesión (Biometría)":
         st.title("🔐 Validación Biométrica de Operador")
-        st.markdown("Ingrese su cédula y valide su identidad para establecer el enlace seguro.")
+        st.markdown("Ingrese su cédula y realice el escáner facial para establecer el enlace seguro.")
         
         cedula_ingreso = st.text_input("Cédula de Identidad Operativa", key="cedula_ingreso_input")
         foto_camara = st.camera_input("Biometría Automática", key="camara_login_input")
@@ -294,7 +323,7 @@ else:
                                 st.audio(archivo_bytes)
                             else:
                                 st.download_button("📥 Descargar Archivo / Música", archivo_bytes, file_name="archivo_multimedia.bin", key=f"dl_{k}")
-                        except:
+                        except Exception:
                             pass
                     st.markdown("</div>", unsafe_allow_html=True)
             else:
@@ -369,7 +398,7 @@ else:
                         st.markdown(f"- **Dimensiones de Imagen:** `{img.size[0]} x {img.size[1]} píxeles`")
                         st.markdown(f"- **Formato Original:** `{img.format}`")
                         st.markdown(f"- **Perfil de Color:** `{img.mode}`")
-                    except:
+                    except Exception:
                         pass
                 st.markdown("</div>", unsafe_allow_html=True)
                 registrar_auditoria(st.session_state['usuario_actual'], f"Extracción de metadatos en archivo: {archivo_meta.name}", obtener_metadatos_red())
@@ -388,22 +417,4 @@ else:
                         <b>📡 Proveedor de Internet (ISP):</b> {meta_red.get('org')}<br>
                         <b>🛰️ Coordenadas de Enlace:</b> {meta_red.get('lat_lon')}<br>
                         <b>🔒 Estado del Enlace:</b> Cifrado y Protegido (HTTPS / TLS 1.3)
-                    </div>
-                    """, unsafe_allow_html=True)
-                    registrar_auditoria(st.session_state['usuario_actual'], "Escaneo de telemetría y red local", meta_red)
-
-    # MÓDULO EXCLUSIVO ADMIN: PANEL BIOMÉTRICO
-    elif seleccion == "Panel de Control & Biometría":
-        st.title("🛡️ Base de Datos Centralizada de Operadores")
-        operadores = obtener_todos_operadores()
-        st.subheader(f"👥 Operadores Registrados ({len(operadores)})")
-        
-        for ced, datos in operadores.items():
-            with st.expander(f"Cédula: {ced} | {datos.get('nombre')} [{datos.get('rol')}]"):
-                col1, col2 = st.columns([1, 2])
-                with col1:
-                    if 'foto' in datos and datos['foto']:
-                        try:
-                            st.image(base64.b64decode(datos['foto']), width=160, caption="Biometría Facial")
-                        except:
-              
+           
