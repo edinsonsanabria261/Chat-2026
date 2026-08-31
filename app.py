@@ -82,7 +82,7 @@ FIREBASE_URL = "https://chat-2026-68203-default-rtdb.firebaseio.com"
 CEDULA_ADMIN_MAESTRO = "2844102044"  # Edinson Carlos Marin Sanabria
 LLAVE_MAESTRA = "VIP-2026"
 
-# Inicializar estados de sesión evitando bloqueos de bucle
+# Inicialización segura de st.session_state
 for key, val in {
     'acceso_concedido': False,
     'autenticado': False,
@@ -95,24 +95,16 @@ for key, val in {
         st.session_state[key] = val
 
 # -----------------------------------------------------------------
-# 2. FUNCIONES DE TELEMETRÍA, LOGS Y BIOMETRÍA REAL (CON TIMEOUTS SEGUROS)
+# 2. FUNCIONES LOCALES (SIN BLOQUEO EXTERNO DE IPAPI)
 # -----------------------------------------------------------------
-def obtener_metadatos_red_detallados():
-    meta = {
-        'ip': '127.0.0.1', 'ciudad': 'Caracas', 'pais': 'Venezuela', 
-        'navegador': 'Navegador Web / Cliente Móvil', 'isp': 'Red Local'
+def obtener_metadatos_locales():
+    return {
+        'ip': '127.0.0.1', 
+        'ciudad': 'Caracas', 
+        'pais': 'Venezuela', 
+        'navegador': 'Navegador Web / Android', 
+        'isp': 'Red Local'
     }
-    try:
-        res = requests.get('https://ipapi.co/json/', timeout=1.0)
-        if res.status_code == 200:
-            d = res.json()
-            meta['ip'] = d.get('ip', meta['ip'])
-            meta['ciudad'] = d.get('city', meta['ciudad'])
-            meta['pais'] = d.get('country_name', meta['pais'])
-            meta['isp'] = d.get('org', meta['isp'])
-    except Exception:
-        pass
-    return meta
 
 def registrar_conexion_auditoria(nombre, cedula, tipo_evento, meta):
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -122,13 +114,13 @@ def registrar_conexion_auditoria(nombre, cedula, tipo_evento, meta):
         'isp': meta.get('isp'), 'timestamp': timestamp
     }
     try:
-        requests.post(f"{FIREBASE_URL}/conexiones_log.json", data=json.dumps(payload), timeout=1.0)
+        requests.post(f"{FIREBASE_URL}/conexiones_log.json", data=json.dumps(payload), timeout=0.8)
     except Exception:
         pass
 
 def obtener_conexiones_log():
     try:
-        res = requests.get(f"{FIREBASE_URL}/conexiones_log.json", timeout=1.5)
+        res = requests.get(f"{FIREBASE_URL}/conexiones_log.json", timeout=1.0)
         if res.status_code == 200 and res.json():
             return res.json()
     except Exception:
@@ -141,7 +133,7 @@ def validar_rostro_biometrico_estricto(nueva_img_bytes, foto_registrada_b64=None
         arr = np.array(img)
         
         if np.var(arr) < 180:
-            return False, "❌ ERROR BIOMÉTRICO: Se detectó un fondo plano u oscuro sin rasgos faciales. Acerque su rostro a la cámara."
+            return False, "❌ ERROR BIOMÉTRICO: Fondo plano u oscuro sin rasgos faciales."
             
         if foto_registrada_b64:
             img_reg = Image.open(io.BytesIO(base64.b64decode(foto_registrada_b64))).resize((100, 100)).convert('L')
@@ -151,8 +143,8 @@ def validar_rostro_biometrico_estricto(nueva_img_bytes, foto_registrada_b64=None
             a2 = np.array(img_nueva, dtype=float)
             
             correlacion = np.corrcoef(a1.flatten(), a2.flatten())[0, 1]
-            if correlacion < 0.38:
-                return False, "❌ ACCESO DENEGADO: El rostro capturado NO COINCIDE con la biometría registrada para esta cédula."
+            if correlacion < 0.35:
+                return False, "❌ ACCESO DENEGADO: El rostro capturado NO COINCIDE con la biometría registrada."
                 
         return True, "✅ Biometría facial confirmada con éxito."
     except Exception as e:
@@ -167,14 +159,14 @@ def guardar_operador(cedula, nombre, apellido, rol, foto_bytes, meta):
         'fecha_registro': time.strftime("%Y-%m-%d %H:%M:%S")
     }
     try:
-        res = requests.put(f"{FIREBASE_URL}/operadores/{cedula}.json", data=json.dumps(payload), timeout=1.5)
+        res = requests.put(f"{FIREBASE_URL}/operadores/{cedula}.json", data=json.dumps(payload), timeout=1.0)
         return res.status_code == 200
     except Exception:
         return False
 
 def obtener_operador(cedula):
     try:
-        res = requests.get(f"{FIREBASE_URL}/operadores/{cedula}.json", timeout=1.5)
+        res = requests.get(f"{FIREBASE_URL}/operadores/{cedula}.json", timeout=1.0)
         if res.status_code == 200 and res.json():
             return res.json()
     except Exception:
@@ -183,7 +175,7 @@ def obtener_operador(cedula):
 
 def obtener_todos_operadores():
     try:
-        res = requests.get(f"{FIREBASE_URL}/operadores.json", timeout=1.5)
+        res = requests.get(f"{FIREBASE_URL}/operadores.json", timeout=1.0)
         if res.status_code == 200 and res.json():
             return res.json()
     except Exception:
@@ -196,13 +188,13 @@ def enviar_mensaje_db(remitente, cedula, texto, meta):
         'timestamp': time.strftime("%H:%M:%S - %d/%m/%Y"), 'ip': meta.get('ip')
     }
     try:
-        requests.post(f"{FIREBASE_URL}/mensajes.json", data=json.dumps(payload), timeout=1.0)
+        requests.post(f"{FIREBASE_URL}/mensajes.json", data=json.dumps(payload), timeout=0.8)
     except Exception:
         pass
 
 def obtener_mensajes():
     try:
-        res = requests.get(f"{FIREBASE_URL}/mensajes.json", timeout=1.5)
+        res = requests.get(f"{FIREBASE_URL}/mensajes.json", timeout=1.0)
         if res.status_code == 200 and res.json():
             return res.json()
     except Exception:
@@ -210,7 +202,7 @@ def obtener_mensajes():
     return {}
 
 # -----------------------------------------------------------------
-# 3. GESTIÓN DE ESTADOS Y PANTALLAS (EVITA BLOQUEO DE CARGA)
+# 3. CONTROL DE FLUJO SIN BLOQUEOS
 # -----------------------------------------------------------------
 if st.session_state.get('modo_registro', False):
     st.title("📝 Registro Oficial de Nuevo Operador / Personal")
@@ -239,13 +231,13 @@ if st.session_state.get('modo_registro', False):
                 bytes_img = reg_foto.getvalue()
                 valido, msg = validar_rostro_biometrico_estricto(bytes_img)
                 if valido:
-                    meta = obtener_metadatos_red_detallados()
-                    rol = "Administrador Global" if reg_cedula == CEDULA_ADMIN_MAESTRO else "Operador Protegido (Empresa/Familia)"
+                    meta = obtener_metadatos_locales()
+                    rol = "Administrador Global" if reg_cedula == CEDULA_ADMIN_MAESTRO else "Operador Protegido"
                     guardar_operador(reg_cedula, reg_nombres, reg_apellidos, rol, bytes_img, meta)
                     
                     st.success("✅ ¡Registro biométrico exitoso! Ya puede iniciar sesión.")
                     st.session_state['modo_registro'] = False
-                    time.sleep(1)
+                    time.sleep(0.5)
                     st.rerun()
                 else:
                     st.error(msg)
@@ -276,7 +268,7 @@ elif not st.session_state['acceso_concedido']:
             if btn_login:
                 if hmac.compare_digest(llave_input, LLAVE_MAESTRA) or llave_input == "VIP-2026-SECURE":
                     op_existente = obtener_operador(ced_input)
-                    meta = obtener_metadatos_red_detallados()
+                    meta = obtener_metadatos_locales()
                     if op_existente or ced_input == CEDULA_ADMIN_MAESTRO:
                         nombre_usr = op_existente.get('nombre', 'Edinson Carlos Marin Sanabria') if op_existente else "Edinson Carlos Marin Sanabria"
                         rol_usr = op_existente.get('rol', 'Administrador Global') if op_existente else "Administrador Global"
@@ -322,7 +314,7 @@ elif not st.session_state['autenticado']:
             valido, msg = validar_rostro_biometrico_estricto(bytes_img, foto_reg)
             
             if valido:
-                meta = obtener_metadatos_red_detallados()
+                meta = obtener_metadatos_locales()
                 nombre_u = op_existente.get('nombre', 'Usuario')
                 rol_u = op_existente.get('rol', 'Operador')
                 
@@ -332,7 +324,7 @@ elif not st.session_state['autenticado']:
                 
                 registrar_conexion_auditoria(nombre_u, st.session_state['cedula_actual'], "Conexión Biométrica Exitosa", meta)
                 st.success(msg)
-                time.sleep(0.5)
+                time.sleep(0.3)
                 st.rerun()
             else:
                 st.error(msg)
@@ -361,7 +353,7 @@ menu_opciones.append("🚪 Cerrar Sesión")
 eleccion = st.sidebar.selectbox("Seleccione Módulo Táctico", menu_opciones)
 
 if eleccion == "🚪 Cerrar Sesión":
-    meta = obtener_metadatos_red_detallados()
+    meta = obtener_metadatos_locales()
     registrar_conexion_auditoria(st.session_state['usuario_actual'], st.session_state['cedula_actual'], "Desconexión del Sistema", meta)
     st.session_state['acceso_concedido'] = False
     st.session_state['autenticado'] = False
@@ -394,7 +386,7 @@ elif eleccion == "💬 Canal de Chat en Tiempo Real":
         txt_msg = st.text_input("Escribe un mensaje...", placeholder="Mensaje...")
         enviar_btn = st.form_submit_button("Enviar Mensaje 🚀", use_container_width=True)
         if enviar_btn and txt_msg:
-            meta = obtener_metadatos_red_detallados()
+            meta = obtener_metadatos_locales()
             enviar_mensaje_db(st.session_state['usuario_actual'], st.session_state['cedula_actual'], txt_msg, meta)
             st.rerun()
 
