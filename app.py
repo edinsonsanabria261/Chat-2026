@@ -9,7 +9,7 @@ import hashlib
 import hmac
 
 # -----------------------------------------------------------------
-# 1. CONFIGURACIÓN TÁCTICA Y ESTILOS UI MODERNOS (Burbujas y Etiquetas Redondas)
+# 1. CONFIGURACIÓN TÁCTICA Y ESTILOS UI PROFESIONALES
 # -----------------------------------------------------------------
 st.set_page_config(
     page_title="Centro Táctico Pericial - Edinson Carlos Marin Sanabria", 
@@ -23,23 +23,13 @@ st.markdown("""
         background-color: #0b0f19;
         color: #f3f4f6;
     }
-    /* Estilo moderno y redondeado para las etiquetas verdes / códigos */
-    code, .pill-badge {
-        color: #00a884 !important;
-        background-color: #111b21 !important;
-        padding: 4px 10px !important;
-        border-radius: 12px !important;
-        border: 1px solid rgba(0, 168, 132, 0.3);
-        font-family: monospace;
-        font-size: 0.9em;
-    }
     .chat-bubble-user {
         background: linear-gradient(135deg, #005c4b 0%, #008069 100%);
         color: #e9edef;
-        padding: 14px 18px;
-        border-radius: 20px 20px 6px 20px;
-        margin-bottom: 10px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        padding: 12px 16px;
+        border-radius: 18px 18px 4px 18px;
+        margin-bottom: 8px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.3);
         max-width: 80%;
         margin-left: auto;
         font-size: 0.95em;
@@ -48,10 +38,10 @@ st.markdown("""
     .chat-bubble-other {
         background: linear-gradient(135deg, #202c33 100%, #111b21 0%);
         color: #e9edef;
-        padding: 14px 18px;
-        border-radius: 20px 20px 20px 6px;
-        margin-bottom: 10px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        padding: 12px 16px;
+        border-radius: 18px 18px 18px 4px;
+        margin-bottom: 8px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.3);
         max-width: 80%;
         border-left: 4px solid #00a884;
         font-size: 0.95em;
@@ -59,18 +49,24 @@ st.markdown("""
     }
     .tool-card {
         background-color: #111b21;
-        padding: 22px;
-        border-radius: 16px;
+        padding: 20px;
+        border-radius: 12px;
         border: 1px solid #222d34;
         margin-bottom: 15px;
-        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     }
     .login-container {
         background-color: #111b21;
         padding: 30px;
-        border-radius: 20px;
+        border-radius: 16px;
         border: 1px solid #222d34;
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);
+    }
+    code {
+        color: #00a884 !important;
+        background-color: #0b0f19 !important;
+        padding: 2px 6px;
+        border-radius: 4px;
     }
     .author-badge {
         background: linear-gradient(90deg, #00a884, #38bdf8);
@@ -100,7 +96,7 @@ for key, val in {
         st.session_state[key] = val
 
 # -----------------------------------------------------------------
-# 2. TELEMETRÍA Y EXTRACCIÓN AVANZADA DE METADATOS EMPRESARIALES
+# 2. TELEMETRÍA Y EXTRACCIÓN AVANZADA DE METADATOS
 # -----------------------------------------------------------------
 def obtener_metadatos_red():
     meta = {
@@ -127,51 +123,29 @@ def obtener_metadatos_red():
         meta['vector_ataque'] = 'Proxy / Red Oculta / Timeout'
     return meta
 
-def extraer_metadatos_archivo(archivo_bytes, nombre_archivo, user_agent_headers="Terminal Móvil / Android"):
-    """Extracción forense ultra completa: EXIF, marca de dispositivo, GPS, Hashes y entorno"""
+def extraer_metadatos_archivo(archivo_bytes, nombre_archivo):
     metadatos = {
         "nombre": nombre_archivo,
         "tamaño_bytes": len(archivo_bytes),
         "sha256": hashlib.sha256(archivo_bytes).hexdigest(),
         "md5": hashlib.md5(archivo_bytes).hexdigest(),
-        "entorno_hardware": user_agent_headers,
-        "exif_detallado": {}
+        "exif": {}
     }
-    
     try:
         image = Image.open(io.BytesIO(archivo_bytes))
         metadatos["formato"] = image.format
         metadatos["modo"] = image.mode
         metadatos["dimensiones"] = f"{image.width}x{image.height} px"
-        metadatos["transparencia"] = "Sí" if image.mode in ("RGBA", "LA") or (image.mode == "P" and 'transparency' in image.info) else "No"
         
         exif_data = image._getexif()
         if exif_data:
-            gps_info = {}
             for tag_id, val in exif_data.items():
                 tag = ExifTags.TAGS.get(tag_id, tag_id)
-                if tag == 'GPSInfo':
-                    for gps_tag_id in val:
-                        gps_tag = ExifTags.GPSTAGS.get(gps_tag_id, gps_tag_id)
-                        gps_info[str(gps_tag)] = str(val[gps_tag_id])
-                    metadatos["exif_detallado"]["GPS"] = gps_info
-                elif tag in ['Make', 'Model', 'DateTime', 'Software', 'ExposureTime', 'FNumber', 'ISOSpeedRatings', 'LensModel']:
-                    metadatos["exif_detallado"][str(tag)] = str(val)
-                else:
-                    metadatos["exif_detallado"][str(tag)] = str(val)
-            
-            # Extracción inteligente de Marca y Modelo de Dispositivo si existen en EXIF
-            metadatos["dispositivo_marca"] = metadatos["exif_detallado"].get('Make', 'Dispositivo Móvil / Android Generico')
-            metadatos["dispositivo_modelo"] = metadatos["exif_detallado"].get('Model', 'Cámara Integrada Streamlit')
+                metadatos["exif"][str(tag)] = str(val)
         else:
-            metadatos["exif_detallado"]["Nota"] = "Imagen limpia de fábrica o comprimida por el navegador (Sin EXIF nativo hardware)."
-            metadatos["dispositivo_marca"] = "Infinix / Android Hardware"
-            metadatos["dispositivo_modelo"] = "Cámara Web / Frontal Capturada en Vivo"
+            metadatos["exif"]["Info"] = "No se encontraron metadatos EXIF (Imagen limpia)"
     except Exception as e:
-        metadatos["parseo_error"] = str(e)
-        metadatos["dispositivo_marca"] = "Desconocido"
-        metadatos["dispositivo_modelo"] = "Desconocido"
-        
+        metadatos["parseo_imagen"] = f"No aplicable ({str(e)})"
     return metadatos
 
 def registrar_auditoria_forense(usuario, accion, meta, dispositivo="N/A", hash_evidencia="N/A"):
@@ -198,8 +172,8 @@ def guardar_operador_con_metadatos(cedula, nombre, rol, foto_bytes, meta, dispos
         rol = "Perito Informático Titular / Administrador Global"
         nombre = "Edinson Carlos Marin Sanabria"
     
-    # Extracción ultra completa y automatizada de metadatos de la captura biométrica
-    meta_biometrica = extraer_metadatos_archivo(foto_bytes, f"biometria_{cedula}.jpg", dispositivo)
+    # Extracción avanzada automática de metadatos de la captura biométrica facial
+    meta_biometrica = extraer_metadatos_archivo(foto_bytes, f"biometria_{cedula}.jpg")
     foto_b64 = base64.b64encode(foto_bytes).decode('utf-8')
     
     payload = {
@@ -286,7 +260,7 @@ def obtener_auditorias():
     return {}
 
 # -----------------------------------------------------------------
-# 3. PASARELA DE ACCESO GLOBAL
+# 3. PASARELA DE ACCESO GLOBAL Y VALIDACIÓN BIOMÉTRICA PREVIA
 # -----------------------------------------------------------------
 if not st.session_state['acceso_concedido']:
     st.markdown("<br><br>", unsafe_allow_html=True)
@@ -321,15 +295,16 @@ st.sidebar.markdown("---")
 
 if not st.session_state['autenticado']:
     st.title("🔐 Validación Biométrica y Registro Obligatorio Previo")
-    st.markdown("Para garantizar la seguridad de la empresa y empleados, ingrese su **Cédula** y realice la **Captura Facial Instantánea** para extraer todos sus metadatos de hardware, IP y ubicación en tiempo real.")
+    st.markdown("Para garantizar la seguridad de la empresa y empleados, ingrese su **Cédula** y realice la **Captura Facial Instantánea** antes de ingresar al sistema.")
     
     col_reg1, col_reg2 = st.columns(2)
     with col_reg1:
         cedula_ingreso = st.text_input("Cédula de Identidad", value=CEDULA_ADMIN_MAESTRO, key="cedula_pre_input")
         nombre_ingreso = st.text_input("Nombre Completo / Alias", value="Edinson Carlos Marin Sanabria", key="nombre_pre_input")
     with col_reg2:
-        st.info("💡 Colóquese frente a la cámara. Al capturar, el sistema generará un registro pericial completo (EXIF, marca del teléfono, ubicación e IP).")
+        st.info("💡 Colóquese frente a la cámara. La captura genera metadatos forenses automáticos (EXIF y Hashes SHA-256).")
     
+    # Cámara para captura facial instantánea obligatoria previa al ingreso
     foto_biometrica_previa = st.camera_input("📸 Captura Facial Instantánea (Toma automática o manual)")
 
     if foto_biometrica_previa:
@@ -339,8 +314,9 @@ if not st.session_state['autenticado']:
             bytes_foto = foto_biometrica_previa.getvalue()
             meta = obtener_metadatos_red()
             
+            # Verificar si ya existe el operador o registrarlo automáticamente con extracción de metadatos avanzada
             rol_asignado = "Perito Informático Titular / Administrador Global" if cedula_ingreso == CEDULA_ADMIN_MAESTRO else "Operador Protegido (Empresa/Familia)"
-            guardar_operador_con_metadatos(cedula_ingreso, nombre_ingreso, rol_asignado, bytes_foto, meta, "Terminal Móvil / Infinix Smart 8")
+            guardar_operador_con_metadatos(cedula_ingreso, nombre_ingreso, rol_asignado, bytes_foto, meta, "Terminal Móvil")
             registrar_auditoria_forense(nombre_ingreso, "Escaneo biométrico e ingreso exitoso", meta, "Móvil", hashlib.sha256(bytes_foto).hexdigest())
             
             st.session_state['autenticado'] = True
@@ -348,13 +324,13 @@ if not st.session_state['autenticado']:
             st.session_state['cedula_actual'] = cedula_ingreso
             st.session_state['rol_actual'] = rol_asignado
             
-            st.success("✅ ¡Biometría validada y metadatos avanzados extraídos con éxito! Ingresando...")
+            st.success("✅ ¡Biometría validada y metadatos extraídos con éxito! Ingresando al sistema...")
             time.sleep(0.8)
             st.rerun()
 
 else:
     # -----------------------------------------------------------------
-    # 5. PANELES DE COMANDO Y CONTROL CON METADATOS COMPLETOS Y UI MODERNA
+    # 5. PANELES DE COMANDO Y CONTROL CON GESTIÓN AVANZADA DE MENSAJES
     # -----------------------------------------------------------------
     st.sidebar.markdown(f"👤 **Operador:** `{st.session_state['usuario_actual']}`")
     st.sidebar.markdown(f"🛡️ **Rango:** `{st.session_state['rol_actual']}`")
@@ -382,10 +358,10 @@ else:
         st.session_state['acceso_concedido'] = False
         st.rerun()
 
-    # MÓDULO 1: CHAT EN TIEMPO REAL CON COPIA Y BORRADO SEGURO
+    # MÓDULO 1: CHAT EN TIEMPO REAL CON COPIA, EDICIÓN Y ELIMINACIÓN DE MENSAJES
     elif seleccion == "Canal de Chat Estilo WhatsApp (Ultra Rápido)":
         st.title("💬 Canal de Comunicaciones Tácticas en Vivo")
-        st.markdown("Mensajería instantánea optimizada con opciones de borrado, metadatos y respaldo en tiempo real.")
+        st.markdown("Mensajería instantánea optimizada. Cada mensaje cuenta con opciones de copiado, auditoría y borrado seguro.")
         st.markdown("---")
         
         chat_container = st.container()
@@ -430,10 +406,12 @@ else:
                         st.markdown("</div>", unsafe_allow_html=True)
                     
                     with col_actions:
-                        if st.button("🗑️ Borrar", key=f"del_{k}", help="Eliminar mensaje"):
+                        # Opciones avanzadas por mensaje: Copiar texto y Borrar mensaje
+                        if st.button("🗑️ Borrar", key=f"del_{k}", help="Eliminar mensaje de la cadena"):
                             eliminar_mensaje_db(k)
                             st.rerun()
                         
+                        # Botón para desplegar metadatos del mensaje si los tiene
                         if msg.get('metadatos_archivo'):
                             with st.expander("🔍 Meta"):
                                 st.json(msg.get('metadatos_archivo'))
@@ -459,4 +437,110 @@ else:
                     meta_archivo = {}
                     if archivo_adjunto:
                         bytes_archivo = archivo_adjunto.getvalue()
-          
+                        b64_file = base64.b64encode(bytes_archivo).decode('utf-8')
+                        tipo_mime = archivo_adjunto.type
+                        meta_archivo = extraer_metadatos_archivo(bytes_archivo, archivo_adjunto.name)
+                    
+                    meta = obtener_metadatos_red()
+                    enviar_mensaje_db(
+                        st.session_state['usuario_actual'], 
+                        texto_msg_input if texto_msg_input else "[Archivo Multimedia]", 
+                        b64_file, 
+                        tipo_mime, 
+                        meta_archivo,
+                        meta
+                    )
+                    st.rerun()
+
+    # MÓDULO EXCLUSIVO: EXTRACCIÓN AVANZADA DE METADATOS Y ARCHIVOS
+    elif seleccion == "Extracción Forense de Metadatos y Archivos":
+        st.title("🔬 Laboratorio de Extracción de Metadatos")
+        st.markdown("Sube cualquier archivo para realizar una inspección forense exhaustiva de metadatos, EXIF y hashes criptográficos.")
+        
+        archivo_analisis = st.file_uploader("Seleccione o arrastre archivo de evidencia", type=['png', 'jpg', 'jpeg', 'pdf', 'mp4', 'txt', 'zip', 'apk'])
+        
+        if archivo_analisis:
+            bytes_evidencia = archivo_analisis.read()
+            resultado_metadatos = extraer_metadatos_archivo(bytes_evidencia, archivo_analisis.name)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.subheader("📊 Propiedades y Hashes")
+                st.code(f"Nombre: {resultado_metadatos['nombre']}\nTamaño: {resultado_metadatos['tamaño_bytes']} bytes\nMD5: {resultado_metadatos['md5']}\nSHA-256: {resultado_metadatos['sha256']}", language="text")
+                if 'formato' in resultado_metadatos:
+                    st.markdown(f"**Formato:** `{resultado_metadatos['formato']}` | **Dimensiones:** `{resultado_metadatos.get('dimensiones', 'N/A')}`")
+            with col2:
+                st.subheader("🖼️ Vista Previa")
+                try:
+                    st.image(bytes_evidencia, width=300, caption="Evidencia Analizada")
+                except Exception:
+                    st.info("Archivo no visualizable como imagen gráfica.")
+            
+            st.markdown("### 🔍 Metadatos EXIF / Estructura Interna")
+            st.json(resultado_metadatos["exif"])
+            
+            if st.button("Guardar Reporte en el Sistema"):
+                meta = obtener_metadatos_red()
+                registrar_auditoria_forense(st.session_state['usuario_actual'], f"Análisis forense de metadatos: {archivo_analisis.name}", meta, "Terminal Móvil", resultado_metadatos['sha256'])
+                st.success("✅ Reporte de metadatos almacenado correctamente en la cadena de custodia.")
+
+    # MÓDULO EXCLUSIVO ADMIN: PANEL BIOMÉTRICO GLOBAL Y EXTRACCIÓN EMPRESARIAL
+    elif seleccion == "Panel de Control & Biometría Global":
+        st.title("🛡️ Base de Datos Centralizada de Operadores & Metadatos Biométricos")
+        st.markdown("Control pericial y visualización de metadatos avanzados extraídos de las capturas biométricas de los empleados.")
+        
+        operadores = obtener_todos_operadores()
+        st.subheader(f"👥 Operadores Registrados ({len(operadores)})")
+        
+        for ced, datos in operadores.items():
+            with st.expander(f"Cédula: {ced} | {datos.get('nombre')} [{datos.get('rol')}]"):
+                col1, col2 = st.columns([1, 2])
+                with col1:
+                    if 'foto' in datos and datos['foto']:
+                        try:
+                            foto_bytes = base64.b64decode(datos['foto'])
+                            st.image(foto_bytes, width=150, caption="Biometría Facial")
+                        except Exception:
+                            st.write("Sin imagen")
+                with col2:
+                    st.markdown(f"**Nombre:** {datos.get('nombre')}")
+                    st.markdown(f"**Cédula:** {datos.get('cedula')}")
+                    st.markdown(f"**Rol:** {datos.get('rol')}")
+                    st.markdown(f"**IP de Registro:** `{datos.get('ip_registro')}`")
+                    st.markdown(f"**Ubicación:** {datos.get('ubicacion_registro')}")
+                    st.markdown(f"**Hardware:** <code>{datos.get('dispositivo_hardware')}</code>", unsafe_allow_html=True)
+                    
+                    if 'metadatos_biometricos' in datos:
+                        st.markdown("---")
+                        st.markdown("**🔬 Metadatos Avanzados Extraídos de la Captura:**")
+                        st.json(datos['metadatos_biometricos'])
+
+    # MÓDULO EXCLUSIVO ADMIN: FORENSE E IPS
+    elif seleccion == "Inteligencia Forense, IPs y Amenazas":
+        st.title("🕵️ Auditoría Forense y Control de IPs")
+        st.markdown("Registro detallado de conexiones, IPs de origen y eventos del sistema.")
+        
+        registros = obtener_auditorias()
+        if registros:
+            items = sorted(registros.items(), key=lambda x: x[0], reverse=True)
+            for k, reg in items[:40]:
+                st.markdown(f"""
+                    <div class="tool-card">
+                        🕒 <b>{reg.get('timestamp')}</b> | 👤 <b>{reg.get('usuario')}</b><br>
+                        ⚡ Evento: <code>{reg.get('accion')}</code><br>
+                        🌐 IP de Origen: <b>{reg.get('ip')}</b> | Ubicación: {reg.get('ubicacion')}<br>
+                        💻 Dispositivo: {reg.get('dispositivo')} | Vector: {reg.get('vector_sospechoso')}
+                    </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info("No hay registros de auditoría forense almacenados todavía.")
+
+    elif seleccion == "Análisis OSINT y Rastreo de Atacantes":
+        st.title("🌐 Módulo OSINT y Trazabilidad de Redes")
+        st.markdown("Herramientas avanzadas para la identificación de nodos externos y vectores de ataque.")
+        meta_actual = obtener_metadatos_red()
+        st.json(meta_actual)
+
+    elif seleccion == "Reporte de Integridad y Seguridad Personal":
+        st.title("🛡️ Estado de Seguridad y Encriptación")
+        st.markdown("Su terminal opera bajo protocolos de cifrado simétrico para la protección de la empresa y la familia.")
