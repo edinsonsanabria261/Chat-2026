@@ -168,7 +168,7 @@ def inyectar_telemetria_y_refresco():
     components.html(component_code, height=0)
 
 # -----------------------------------------------------------------
-# 4. PASARELA DE ACCESO MAESTRO
+# 4. PASARELA DE ACCESO MAESTRO (OPTIMIZADA CON FORMULARIO)
 # -----------------------------------------------------------------
 if 'acceso_concedido' not in st.session_state:
     st.session_state['acceso_concedido'] = False
@@ -180,8 +180,21 @@ if not st.session_state['acceso_concedido']:
         st.markdown("""
             <div class="login-box">
                 <h2 style="text-align: center; color: #6366f1;">⚡ CENTRO TÁCTICO RED TEAM</h2>
-                <p style="text-align: center; color: #9ca3af;">Plataforma de Operaciones Ofensivas, Ciberseguridad Avanzada y Enlace Cifrado en Tiempo Real.</p>
+                <p style="text-align: center; color: #9ca3af;">Plataforma de Operaciones Avanzadas y Enlace Cifrado.</p>
             </div>
         """, unsafe_allow_html=True)
         
-        llave_input = st.text_input("🔑 Llave de Acceso Global", type="password")
+        # El formulario permite procesar la clave al presionar Enter en móviles
+        with st.form(key="login_form"):
+            llave_input = st.text_input("🔑 Llave de Acceso Global", type="password")
+            btn_desbloquear = st.form_submit_button("Desbloquear Sistema Táctico", type="primary", use_container_width=True)
+            
+            if btn_desbloquear:
+                if llave_input == LLAVE_ACCESO_MAESTRA:
+                    st.session_state['acceso_concedido'] = True
+                    st.success("¡Acceso autorizado! Cargando interfaz...")
+                    time.sleep(0.3)
+                    st.rerun()
+                else:
+                    st.error("❌ Llave incorrecta. Acceso denegado.")
+    st.stop()
