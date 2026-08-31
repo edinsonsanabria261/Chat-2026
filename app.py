@@ -394,7 +394,7 @@ else:
                 st.success("¡Archivo cargado correctamente para análisis forense!")
                 file_details = {"Nombre": archivo_meta.name, "Tamaño": f"{archivo_meta.size} bytes", "Tipo MIME": archivo_meta.type}
                 
-                st.markdown("""<div class="tool-card">""", unsafe_allow_html=True)
+                st.markdown('<div class="tool-card">', unsafe_allow_html=True)
                 st.markdown("#### 🔍 Metadatos Extraídos del Archivo:")
                 for k, v in file_details.items():
                     st.markdown(f"- **{k}:** `{v}`")
@@ -417,4 +417,4 @@ else:
 
         with tab3:
             st.markdown("### Escáner de Dispositivos y Telemetría de Red Local")
-            st.write("Analiza las características del nodo a
+            st.write("Analiza las características del nodo actua
