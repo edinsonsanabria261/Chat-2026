@@ -198,12 +198,13 @@ if not st.session_state['acceso_concedido']:
     st.markdown("<br><br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.markdown("""
-            <div class="login-box">
-                <h2 style="text-align: center; color: #6366f1;">⚡ CENTRO TÁCTICO RED TEAM</h2>
-                <p style="text-align: center; color: #9ca3af;">Plataforma de Operaciones Ofensivas, Ciberseguridad Avanzada y Enlace Cifrado en Tiempo Real.</p>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            '<div class="login-box">'
+            '<h2 style="text-align: center; color: #6366f1;">⚡ CENTRO TÁCTICO RED TEAM</h2>'
+            '<p style="text-align: center; color: #9ca3af;">Plataforma de Operaciones Ofensivas, Ciberseguridad Avanzada y Enlace Cifrado en Tiempo Real.</p>'
+            '</div>',
+            unsafe_allow_html=True
+        )
         
         llave_input = st.text_input("🔑 Llave de Acceso Global", type="password")
         if st.button("Desbloquear Sistema Táctico", type="primary", use_container_width=True):
@@ -383,11 +384,12 @@ else:
                 with st.spinner("Ejecutando fuerza bruta y permutaciones de claves..."):
                     time.sleep(2.0)
                     st.success("¡Simulación completada con éxito!")
-                    st.markdown("""
-                    <div class="tool-box">
-                        <b>[+] Estado:</b> Acceso concedido al sistema remoto. Brecha validada.
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(
+                        '<div class="tool-box">'
+                        '<b>[+] Estado:</b> Acceso concedido al sistema remoto. Brecha validada.'
+                        '</div>',
+                        unsafe_allow_html=True
+                    )
                     registrar_auditoria(st.session_state['usuario_actual'], f"Ejecución de Fuerza Bruta en {target_ip}", obtener_metadatos_red())
 
         with tab2:
@@ -416,6 +418,6 @@ else:
             if st.button("Iniciar Escaneo de Puertos", key="btn_scan"):
                 with st.spinner("Sondeando puertos y servicios..."):
                     time.sleep(1.8)
-                    st.markdown("""
-                    <div class="tool-box">
-                        <p style="color: #10b981;"><b>[+]
+                    st.markdown(
+                        '<div class="tool-box">'
+                
