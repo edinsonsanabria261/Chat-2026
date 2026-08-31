@@ -9,7 +9,11 @@ import base64
 # -----------------------------------------------------------------
 # 1. CONFIGURACIÓN TÁCTICA Y ESTILOS UI PREMIUM (MODO OSCURO)
 # -----------------------------------------------------------------
-st.set_page_config(page_title="Centro Táctico Red Team - Enzo Marín", page_icon="⚡", layout="wide")
+st.set_page_config(
+    page_title="Centro Táctico Red Team - Enzo Marín", 
+    page_icon="⚡", 
+    layout="wide"
+)
 
 st.markdown("""
     <style>
@@ -91,7 +95,14 @@ if 'intentos_fallidos' not in st.session_state:
 # 2. FUNCIONES DE TELEMETRÍA Y SEGURIDAD
 # -----------------------------------------------------------------
 def obtener_metadatos_red():
-    meta = {'ip': '127.0.0.1', 'ciudad': 'Nodo Local', 'pais': 'Red Interna', 'org': 'Red Táctica Directa', 'lat_lon': 'N/A', 'isp': 'N/A'}
+    meta = {
+        'ip': '127.0.0.1', 
+        'ciudad': 'Nodo Local', 
+        'pais': 'Red Interna', 
+        'org': 'Red Táctica Directa', 
+        'lat_lon': 'N/A', 
+        'isp': 'N/A'
+    }
     try:
         response = requests.get('https://ipapi.co/json/', timeout=2)
         if response.status_code == 200:
@@ -110,10 +121,14 @@ def obtener_metadatos_red():
 def registrar_auditoria(usuario, accion, meta, dispositivo="N/A"):
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
     payload = {
-        'usuario': usuario, 'accion': accion, 'ip': meta.get('ip'),
+        'usuario': usuario, 
+        'accion': accion, 
+        'ip': meta.get('ip'),
         'ubicacion': f"{meta.get('ciudad')}, {meta.get('pais')}",
-        'proveedor': meta.get('org'), 'coordenadas': meta.get('lat_lon'),
-        'dispositivo': dispositivo, 'timestamp': timestamp
+        'proveedor': meta.get('org'), 
+        'coordenadas': meta.get('lat_lon'),
+        'dispositivo': dispositivo, 
+        'timestamp': timestamp
     }
     try:
         requests.post(f"{FIREBASE_URL}/auditoria_ip.json", data=json.dumps(payload), timeout=2)
@@ -124,9 +139,14 @@ def guardar_operador(cedula, nombre, rol, foto_b64, meta, dispositivo):
     if cedula == CEDULA_ADMIN_MAESTRO:
         rol = "Comandante Red Team (Administrador Total)"
     payload = {
-        'nombre': nombre, 'cedula': cedula, 'rol': rol, 'foto': foto_b64,
-        'ip_registro': meta.get('ip'), 'ubicacion_registro': f"{meta.get('ciudad')}, {meta.get('pais')}",
-        'coordenadas_gps': meta.get('lat_lon'), 'dispositivo_hardware': dispositivo,
+        'nombre': nombre, 
+        'cedula': cedula, 
+        'rol': rol, 
+        'foto': foto_b64,
+        'ip_registro': meta.get('ip'), 
+        'ubicacion_registro': f"{meta.get('ciudad')}, {meta.get('pais')}",
+        'coordenadas_gps': meta.get('lat_lon'), 
+        'dispositivo_hardware': dispositivo,
         'fecha_registro': time.strftime("%Y-%m-%d %H:%M:%S")
     }
     try:
@@ -339,7 +359,11 @@ else:
             texto_msg_input = st.text_area("Escribir mensaje...", height=70, label_visibility="collapsed")
             col_file, col_btn = st.columns([3, 1])
             with col_file:
-                archivo_adjunto = st.file_uploader("Soporte Multimedia", type=['png', 'jpg', 'jpeg', 'mp4', 'mov', 'mp3', 'wav', 'pdf', 'zip'], label_visibility="collapsed")
+                archivo_adjunto = st.file_uploader(
+                    "Soporte Multimedia", 
+                    type=['png', 'jpg', 'jpeg', 'mp4', 'mov', 'mp3', 'wav', 'pdf', 'zip'], 
+                    label_visibility="collapsed"
+                )
             with col_btn:
                 enviar = st.form_submit_button("Enviar 🚀", use_container_width=True)
                 
@@ -352,7 +376,13 @@ else:
                         tipo_mime = archivo_adjunto.type
                     
                     meta = obtener_metadatos_red()
-                    enviar_mensaje_db(st.session_state['usuario_actual'], texto_msg_input if texto_msg_input else "[Archivo Multimedia Compartido]", b64_file, tipo_mime, meta)
+                    enviar_mensaje_db(
+                        st.session_state['usuario_actual'], 
+                        texto_msg_input if texto_msg_input else "[Archivo Multimedia Compartido]", 
+                        b64_file, 
+                        tipo_mime, 
+                        meta
+                    )
                     st.rerun()
 
     # MÓDULO: INTELIGENCIA OSINT, REDES Y METADATOS
@@ -361,7 +391,11 @@ else:
         st.markdown("Herramientas de análisis pasivo y activo para auditar redes y extraer metadatos.")
         st.markdown("---")
         
-        tab1, tab2, tab3 = st.tabs(["🔍 Rastreo Profundo OSINT & IP", "📊 Extractor de Metadatos de Archivos", "🛡️ Auditoría de Red Local y Dispositivos"])
+        tab1, tab2, tab3 = st.tabs([
+            "🔍 Rastreo Profundo OSINT & IP", 
+            "📊 Extractor de Metadatos de Archivos", 
+            "🛡️ Auditoría de Red Local y Dispositivos"
+        ])
         
         with tab1:
             st.markdown("### Análisis OSINT y Geolocalización de Objetivos de Red")
@@ -385,18 +419,30 @@ else:
         with tab2:
             st.markdown("### Extractor Forense de Metadatos (EXIF / Documentos / Multimedia)")
             st.write("Sube cualquier imagen, PDF o documento para extraer información oculta.")
-            archivo_meta = st.file_uploader("Seleccionar archivo para extraer metadatos", type=['jpg', 'jpeg', 'png', 'pdf', 'txt', 'mp4'], key="meta_file_upload")
+            archivo_meta = st.file_uploader(
+                "Seleccionar archivo para extraer metadatos", 
+                type=['jpg', 'jpeg', 'png', 'pdf', 'txt', 'mp4'], 
+                key="meta_file_upload"
+            )
             
             if archivo_meta:
                 st.success("¡Archivo cargado correctamente para análisis forense!")
-                file_details = {"Nombre": archivo_meta.name, "Tamaño": f"{archivo_meta.size} bytes", "Tipo MIME": archivo_meta.type}
+                file_details = {
+                    "Nombre": archivo_meta.name, 
+                    "Tamaño": f"{archivo_meta.size} bytes", 
+                    "Tipo MIME": archivo_meta.type
+                }
                 
                 st.markdown('<div class="tool-card">', unsafe_allow_html=True)
                 st.markdown("#### 🔍 Metadatos Extraídos del Archivo:")
                 for k, v in file_details.items():
                     st.markdown(f"- **{k}:** `{v}`")
                 st.markdown("</div>", unsafe_allow_html=True)
-                registrar_auditoria(st.session_state['usuario_actual'], f"Extracción de metadatos en archivo: {archivo_meta.name}", obtener_metadatos_red())
+                registrar_auditoria(
+                    st.session_state['usuario_actual'], 
+                    f"Extracción de metadatos en archivo: {archivo_meta.name}", 
+                    obtener_metadatos_red()
+                )
 
         with tab3:
             st.markdown("### Escáner de Dispositivos y Telemetría de Red Local")
@@ -426,4 +472,34 @@ else:
                     if 'foto' in datos and datos['foto']:
                         try:
                             foto_bytes = base64.b64decode(datos['foto'])
-                    
+                            st.image(
+                                foto_bytes, 
+                                width=160, 
+                                caption="Biometría Facial"
+                            )
+                        except Exception:
+                            st.write("Imagen no disponible")
+                with col2:
+                    st.markdown(f"**Nombre:** {datos.get('nombre')}")
+                    st.markdown(f"**Cédula:** {datos.get('cedula')}")
+                    st.markdown(f"**Rol:** {datos.get('rol')}")
+                    st.markdown(f"**IP:** `{datos.get('ip_registro')}`")
+                    st.markdown(f"**Ubicación:** {datos.get('ubicacion_registro')}")
+                    st.markdown(f"**Hardware:** <code>{datos.get('dispositivo_hardware')}</code>", unsafe_allow_html=True)
+
+    # MÓDULO EXCLUSIVO ADMIN: FORENSE
+    elif seleccion == "Inteligencia Forense y Redes":
+        st.title("🕵️ Auditoría y Registro de Accesos en Vivo")
+        registros = obtener_auditorias()
+        if registros:
+            items = sorted(registros.items(), key=lambda x: x[0], reverse=True)
+            for k, reg in items[:40]:
+                st.markdown(f"""
+                    <div class="tool-card">
+                        🕒 <b>{reg.get('timestamp')}</b> | 👤 <b>{reg.get('usuario')}</b><br>
+                        ⚡ Acción: <i>{reg.get('accion')}</i><br>
+                        🌐 IP: <code>{reg.get('ip')}</code> | 📍 Ubicación: <b>{reg.get('ubicacion')}</b>
+                    </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info("No hay registros de auditoría almacenados.")
