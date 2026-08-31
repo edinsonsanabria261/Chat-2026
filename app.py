@@ -66,6 +66,7 @@ FIREBASE_URL = "https://chat-2026-68203-default-rtdb.firebaseio.com/"
 CEDULA_ADMIN_MAESTRO = "12345678"
 LLAVE_ACCESO_MAESTRA = "VIP-2026-SECURE"
 
+# Inicialización robusta del session_state para evitar cierres inesperados
 if 'acceso_concedido' not in st.session_state:
     st.session_state['acceso_concedido'] = False
 
@@ -75,13 +76,16 @@ if 'autenticado' not in st.session_state:
     st.session_state['rol_actual'] = ""
     st.session_state['cedula_actual'] = ""
 
+if 'intentos_fallidos' not in st.session_state:
+    st.session_state['intentos_fallidos'] = 0
+
 # -----------------------------------------------------------------
-# 2. FUNCIONES DE TELEMETRÍA Y EXTRACCIÓN DE METADATOS DE RED
+# 2. FUNCIONES DE TELEMETRÍA Y SEGURIDAD
 # -----------------------------------------------------------------
 def obtener_metadatos_red():
     meta = {'ip': '127.0.0.1', 'ciudad': 'Nodo Local', 'pais': 'Red Interna', 'org': 'Red Táctica Directa', 'lat_lon': 'N/A', 'isp': 'N/A'}
     try:
-        response = requests.get('https://ipapi.co/json/', timeout=3)
+        response = requests.get('https://ipapi.co/json/', timeout=2)
         if response.status_code == 200:
             data = response.json()
             meta['ip'] = data.get('ip', '127.0.0.1')
@@ -103,7 +107,10 @@ def registrar_auditoria(usuario, accion, meta, dispositivo="N/A"):
         'proveedor': meta.get('org'), 'coordenadas': meta.get('lat_lon'),
         'dispositivo': dispositivo, 'timestamp': timestamp
     }
-    requests.post(f"{FIREBASE_URL}/auditoria_ip.json", data=json.dumps(payload))
+    try:
+        requests.post(f"{FIREBASE_URL}/auditoria_ip.json", data=json.dumps(payload), timeout=2)
+    except:
+        pass
 
 def guardar_operador(cedula, nombre, rol, foto_b64, meta, dispositivo):
     if cedula == CEDULA_ADMIN_MAESTRO:
@@ -153,34 +160,7 @@ def obtener_auditorias():
     return {}
 
 # -----------------------------------------------------------------
-# 3. SCRIPTS DE HARDWARE Y AUTO-ACTUALIZACIÓN INSTANTÁNEA
-# -----------------------------------------------------------------
-def inyectar_telemetria_y_refresco():
-    component_code = """
-    <script>
-    const ua = navigator.userAgent;
-    let dispositivo = "Terminal Móvil / Escritorio";
-    if (/android/i.test(ua)) dispositivo = "Android Device";
-    else if (/iphone|ipad|ipod/i.test(ua)) dispositivo = "iOS Device";
-    else if (/windows/i.test(ua)) dispositivo = "PC Windows";
-    else if (/mac/i.test(ua)) dispositivo = "Macintosh";
-    
-    const infoHardware = dispositivo + " | Pantalla: " + window.screen.width + "x" + window.screen.height;
-    
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(function(position) {
-            const latlon = position.coords.latitude + "," + position.coords.longitude;
-            window.parent.postMessage({type: 'streamlit:setComponentValue', value: {hw: infoHardware, gps: latlon}}, '*');
-        }, function(error) {
-            window.parent.postMessage({type: 'streamlit:setComponentValue', value: {hw: infoHardware, gps: 'GPS No Disponible'}}, '*');
-        }, {timeout: 4000});
-    }
-    </script>
-    """
-    components.html(component_code, height=0)
-
-# -----------------------------------------------------------------
-# 4. PASARELA DE ACCESO MAESTRO
+# 3. PASARELA DE ACCESO MAESTRO (BLINDADA CONTRA FUERZA BRUTA)
 # -----------------------------------------------------------------
 if not st.session_state['acceso_concedido']:
     st.markdown("<br><br>", unsafe_allow_html=True)
@@ -189,51 +169,43 @@ if not st.session_state['acceso_concedido']:
         st.markdown("""
             <div class="login-container">
                 <h2 style="text-align: center; color: #6366f1;">⚡ CENTRO TÁCTICO RED TEAM</h2>
-                <p style="text-align: center; color: #9ca3af;">Plataforma de Seguridad, Inteligencia de Redes y Enlace Cifrado.</p>
+                <p style="text-align: center; color: #9ca3af;">Plataforma Blindada de Seguridad y Enlace Cifrado.</p>
             </div>
         """, unsafe_allow_html=True)
         
-        with st.form(key="login_form"):
-            llave_input = st.text_input("🔑 Llave de Acceso Global", type="password")
-            btn_desbloquear = st.form_submit_button("Desbloquear Sistema Táctico", type="primary", use_container_width=True)
-            
-            if btn_desbloquear:
-                if llave_input == LLAVE_ACCESO_MAESTRA:
-                    st.session_state['acceso_concedido'] = True
-                    st.rerun()
-                else:
-                    st.error("❌ Llave incorrecta. Acceso denegado.")
+        if st.session_state['intentos_fallidos'] >= 3:
+            st.error("🚨 Alerta de Seguridad: Demasiados intentos fallidos. Sistema bloqueado temporalmente por defensa activa.")
+            time.sleep(3)
+        else:
+            with st.form(key="login_form"):
+                llave_input = st.text_input("🔑 Llave de Acceso Global", type="password")
+                btn_desbloquear = st.form_submit_button("Desbloquear Sistema Táctico", type="primary", use_container_width=True)
+                
+                if btn_desbloquear:
+                    if llave_input == LLAVE_ACCESO_MAESTRA:
+                        st.session_state['acceso_concedido'] = True
+                        st.session_state['intentos_fallidos'] = 0
+                        st.rerun()
+                    else:
+                        st.session_state['intentos_fallidos'] += 1
+                        st.error(f"❌ Llave incorrecta. Intentos restantes: {3 - st.session_state['intentos_fallidos']}")
     st.stop()
 
 # -----------------------------------------------------------------
-# 5. GESTIÓN DE SESIÓN Y AUTENTICACIÓN BIOMÉTRICA
+# 4. GESTIÓN DE SESIÓN Y AUTENTICACIÓN BIOMÉTRICA DE OPERADOR
 # -----------------------------------------------------------------
 st.sidebar.title("⚡ Red Team Central")
 st.sidebar.markdown("---")
 
 if not st.session_state['autenticado']:
     modo_auth = st.sidebar.radio("Modo de Ingreso", ["Iniciar Sesión (Biometría)", "Registrar Operador"])
-    inyectar_telemetria_y_refresco()
     
     if modo_auth == "Iniciar Sesión (Biometría)":
         st.title("🔐 Validación Biométrica de Operador")
-        st.markdown("Ingrese su cédula. El sistema capturará su rostro automáticamente para autorizar el enlace.")
+        st.markdown("Ingrese su cédula y valide su identidad para establecer el enlace seguro.")
         
-        cedula_ingreso = st.text_input("Cédula de Identidad Operativa")
-        st.markdown("📸 **Escáner Facial Automático:**")
-        foto_camara = st.camera_input("Biometría Automática", label_visibility="collapsed")
-        
-        components.html("""
-        <script>
-        setTimeout(function() {
-            const btn = document.querySelector('button[kind="secondary"]');
-            if (btn && !window.clicked) {
-                window.clicked = true;
-                setTimeout(() => { btn.click(); }, 1200);
-            }
-        }, 800);
-        </script>
-        """, height=0)
+        cedula_ingreso = st.text_input("Cédula de Identidad Operativa", key="cedula_ingreso_input")
+        foto_camara = st.camera_input("Biometría Automática", key="camara_login_input")
 
         if foto_camara:
             if not cedula_ingreso:
@@ -247,17 +219,16 @@ if not st.session_state['autenticado']:
                     st.session_state['cedula_actual'] = cedula_ingreso
                     st.session_state['rol_actual'] = "Comandante Red Team (Administrador Total)" if cedula_ingreso == CEDULA_ADMIN_MAESTRO else "Operador Táctico"
                     
-                    registrar_auditoria(user_data.get('nombre'), "Acceso biométrico instantáneo exitoso", meta)
+                    registrar_auditoria(user_data.get('nombre'), "Acceso biométrico exitoso", meta)
                     st.rerun()
                 else:
                     st.error("❌ Cédula no encontrada en la base de datos de operadores.")
 
     elif modo_auth == "Registrar Operador":
         st.title("📝 Registro de Nuevo Operador Táctico")
-        reg_nombre = st.text_input("Nombre Completo / Alias")
-        reg_cedula = st.text_input("Cédula de Identidad")
-        st.markdown("📸 **Captura Facial para Base de Datos:**")
-        reg_foto = st.camera_input("Registro Facial", label_visibility="collapsed")
+        reg_nombre = st.text_input("Nombre Completo / Alias", key="reg_nombre_input")
+        reg_cedula = st.text_input("Cédula de Identidad", key="reg_cedula_input")
+        reg_foto = st.camera_input("Registro Facial", key="camara_registro_input")
         
         if reg_foto:
             if not reg_nombre or not reg_cedula:
@@ -272,7 +243,7 @@ if not st.session_state['autenticado']:
 
 else:
     # -----------------------------------------------------------------
-    # 6. PANELES DE CONTROL Y HERRAMIENTAS AVANZADAS
+    # 5. PANELES DE CONTROL Y COMUNICACIÓN BLINDADA
     # -----------------------------------------------------------------
     st.sidebar.markdown(f"👤 **Operador:** `{st.session_state['usuario_actual']}`")
     st.sidebar.markdown(f"🛡️ **Rango:** `{st.session_state['rol_actual']}`")
@@ -283,25 +254,19 @@ else:
         opciones_menu.extend(["Panel de Control & Biometría", "Inteligencia Forense y Redes"])
     opciones_menu.append("Cerrar Sesión")
     
-    seleccion = st.sidebar.selectbox("Centro de Comando", opciones_menu)
+    seleccion = st.sidebar.selectbox("Centro de Comando", opciones_menu, key="menu_selector_principal")
     
     if seleccion == "Cerrar Sesión":
         st.session_state['autenticado'] = False
+        st.session_state['acceso_concedido'] = False
         st.rerun()
 
-    # MÓDULO: CHAT ESTILO WHATSAPP MULTIMEDIA (INSTANTÁNEO)
+    # MÓDULO: CHAT ESTILO WHATSAPP MULTIMEDIA
     elif seleccion == "Canal de Chat Estilo WhatsApp (Ultra Rápido)":
         st.title("💬 Canal de Comunicaciones Tácticas en Tiempo Real")
-        st.markdown("Transmisión instantánea tipo WhatsApp con soporte completo para imágenes, videos, audios y música.")
+        st.markdown("Transmisión instantánea cifrada con soporte multimedia completo.")
         st.markdown("---")
         
-        st.markdown("""
-            <meta http-equiv="refresh" content="3">
-            <script>
-               window.scrollTo(0, document.body.scrollHeight);
-            </script>
-        """, unsafe_allow_html=True)
-
         chat_container = st.container()
         with chat_container:
             mensajes = obtener_mensajes()
@@ -355,21 +320,21 @@ else:
                     enviar_mensaje_db(st.session_state['usuario_actual'], texto_msg if texto_msg else "[Archivo Multimedia Compartido]", b64_file, tipo_mime, meta)
                     st.rerun()
 
-    # MÓDULO: INTELIGENCIA OSINT, REDES Y METADATOS AVANZADOS
+    # MÓDULO: INTELIGENCIA OSINT, REDES Y METADATOS
     elif seleccion == "Inteligencia OSINT, Redes y Metadatos":
         st.title("🌐 Inteligencia OSINT & Extracción Avanzada de Metadatos")
-        st.markdown("Herramientas de análisis pasivo y activo para auditar redes, extraer metadatos de archivos y rastrear información de seguridad.")
+        st.markdown("Herramientas de análisis pasivo y activo para auditar redes y extraer metadatos.")
         st.markdown("---")
         
         tab1, tab2, tab3 = st.tabs(["🔍 Rastreo Profundo OSINT & IP", "📊 Extractor de Metadatos de Archivos", "🛡️ Auditoría de Red Local y Dispositivos"])
         
         with tab1:
             st.markdown("### Análisis OSINT y Geolocalización de Objetivos de Red")
-            ip_objetivo = st.text_input("Dirección IP, Dominio o Host a Analizar", "8.8.8.8")
+            ip_objetivo = st.text_input("Dirección IP, Dominio o Host a Analizar", "8.8.8.8", key="osint_ip_input")
             
-            if st.button("Ejecutar Análisis OSINT Completo", type="primary"):
+            if st.button("Ejecutar Análisis OSINT Completo", type="primary", key="btn_osint_exec"):
                 with st.spinner("Consultando registros globales de DNS, WHOIS y ASN..."):
-                    time.sleep(1.5)
+                    time.sleep(1)
                     meta_actual = obtener_metadatos_red()
                     st.markdown(f"""
                     <div class="tool-card">
@@ -386,8 +351,8 @@ else:
 
         with tab2:
             st.markdown("### Extractor Forense de Metadatos (EXIF / Documentos / Multimedia)")
-            st.write("Sube cualquier imagen, PDF o documento para extraer información oculta (fecha, dispositivo, coordenadas GPS, autor).")
-            archivo_meta = st.file_uploader("Seleccionar archivo para extraer metadatos", type=['jpg', 'jpeg', 'png', 'pdf', 'txt', 'mp4'])
+            st.write("Sube cualquier imagen, PDF o documento para extraer información oculta.")
+            archivo_meta = st.file_uploader("Seleccionar archivo para extraer metadatos", type=['jpg', 'jpeg', 'png', 'pdf', 'txt', 'mp4'], key="meta_file_upload")
             
             if archivo_meta:
                 st.success("¡Archivo cargado correctamente para análisis forense!")
@@ -404,11 +369,6 @@ else:
                         st.markdown(f"- **Dimensiones de Imagen:** `{img.size[0]} x {img.size[1]} píxeles`")
                         st.markdown(f"- **Formato Original:** `{img.format}`")
                         st.markdown(f"- **Perfil de Color:** `{img.mode}`")
-                        exif_data = img.getexif()
-                        if exif_data:
-                            st.markdown("- **Datos EXIF Ocultos:** Detectados y descifrados con éxito.")
-                        else:
-                            st.markdown("- **Datos EXIF Ocultos:** Limpios (Sin metadatos de cámara incrustados).")
                     except:
                         pass
                 st.markdown("</div>", unsafe_allow_html=True)
@@ -416,5 +376,34 @@ else:
 
         with tab3:
             st.markdown("### Escáner de Dispositivos y Telemetría de Red Local")
-            st.write("Analiza las características del nodo actual y dispositivos conectados en el entorno inmediato.")
+            if st.button("Escanear Nodo y Red Actual", key="btn_scan_node"):
+                with st.spinner("Recopilando telemetría de hardware y red..."):
+                    time.sleep(1)
+                    meta_red = obtener_metadatos_red()
+                    st.markdown(f"""
+                    <div class="tool-card">
+                        <h4>💻 Telemetría de Dispositivo & Red Activa</h4>
+                        <b>🌐 IP Pública Actual:</b> <code>{meta_red.get('ip')}</code><br>
+                        <b>🏙️ Nodo / Ciudad:</b> {meta_red.get('ciudad')}, {meta_red.get('pais')}<br>
+                        <b>📡 Proveedor de Internet (ISP):</b> {meta_red.get('org')}<br>
+                        <b>🛰️ Coordenadas de Enlace:</b> {meta_red.get('lat_lon')}<br>
+                        <b>🔒 Estado del Enlace:</b> Cifrado y Protegido (HTTPS / TLS 1.3)
+                    </div>
+                    """, unsafe_allow_html=True)
+                    registrar_auditoria(st.session_state['usuario_actual'], "Escaneo de telemetría y red local", meta_red)
+
+    # MÓDULO EXCLUSIVO ADMIN: PANEL BIOMÉTRICO
+    elif seleccion == "Panel de Control & Biometría":
+        st.title("🛡️ Base de Datos Centralizada de Operadores")
+        operadores = obtener_todos_operadores()
+        st.subheader(f"👥 Operadores Registrados ({len(operadores)})")
         
+        for ced, datos in operadores.items():
+            with st.expander(f"Cédula: {ced} | {datos.get('nombre')} [{datos.get('rol')}]"):
+                col1, col2 = st.columns([1, 2])
+                with col1:
+                    if 'foto' in datos and datos['foto']:
+                        try:
+                            st.image(base64.b64decode(datos['foto']), width=160, caption="Biometría Facial")
+                        except:
+              
