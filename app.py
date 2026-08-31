@@ -7,6 +7,7 @@ import io
 import base64
 import hmac
 import numpy as np
+import hashlib
 
 # -----------------------------------------------------------------
 # 1. CONFIGURACIÓN Y ESTILOS UI GIGANTES Y RESALTADOS
@@ -21,7 +22,6 @@ st.markdown("""
     <style>
     .stApp { background-color: #05070b; color: #ffffff; }
     
-    /* Textos y títulos súper grandes y resaltados */
     h1 { font-size: 2.5em !important; font-weight: 900 !important; color: #00ffcc !important; text-shadow: 0 0 10px rgba(0,255,204,0.4); }
     h2 { font-size: 2em !important; font-weight: 800 !important; color: #38bdf8 !important; }
     h3 { font-size: 1.6em !important; font-weight: 700 !important; color: #facc15 !important; }
@@ -82,7 +82,7 @@ FIREBASE_URL = "https://chat-2026-68203-default-rtdb.firebaseio.com"
 CEDULA_ADMIN_MAESTRO = "2844102044"  # Edinson Carlos Marin Sanabria
 LLAVE_MAESTRA = "VIP-2026"
 
-# Inicializar estados de sesión
+# Inicializar estados de sesión evitando bloqueos de bucle
 for key, val in {
     'acceso_concedido': False,
     'autenticado': False,
@@ -95,7 +95,7 @@ for key, val in {
         st.session_state[key] = val
 
 # -----------------------------------------------------------------
-# 2. FUNCIONES DE TELEMETRÍA, LOGS Y BIOMETRÍA REAL
+# 2. FUNCIONES DE TELEMETRÍA, LOGS Y BIOMETRÍA REAL (CON TIMEOUTS SEGUROS)
 # -----------------------------------------------------------------
 def obtener_metadatos_red_detallados():
     meta = {
@@ -103,7 +103,7 @@ def obtener_metadatos_red_detallados():
         'navegador': 'Navegador Web / Cliente Móvil', 'isp': 'Red Local'
     }
     try:
-        res = requests.get('https://ipapi.co/json/', timeout=1.5)
+        res = requests.get('https://ipapi.co/json/', timeout=1.0)
         if res.status_code == 200:
             d = res.json()
             meta['ip'] = d.get('ip', meta['ip'])
@@ -122,13 +122,13 @@ def registrar_conexion_auditoria(nombre, cedula, tipo_evento, meta):
         'isp': meta.get('isp'), 'timestamp': timestamp
     }
     try:
-        requests.post(f"{FIREBASE_URL}/conexiones_log.json", data=json.dumps(payload), timeout=1.5)
+        requests.post(f"{FIREBASE_URL}/conexiones_log.json", data=json.dumps(payload), timeout=1.0)
     except Exception:
         pass
 
 def obtener_conexiones_log():
     try:
-        res = requests.get(f"{FIREBASE_URL}/conexiones_log.json", timeout=2.0)
+        res = requests.get(f"{FIREBASE_URL}/conexiones_log.json", timeout=1.5)
         if res.status_code == 200 and res.json():
             return res.json()
     except Exception:
@@ -140,7 +140,6 @@ def validar_rostro_biometrico_estricto(nueva_img_bytes, foto_registrada_b64=None
         img = Image.open(io.BytesIO(nueva_img_bytes)).convert('L')
         arr = np.array(img)
         
-        # Evitar paredes o fondos planos
         if np.var(arr) < 180:
             return False, "❌ ERROR BIOMÉTRICO: Se detectó un fondo plano u oscuro sin rasgos faciales. Acerque su rostro a la cámara."
             
@@ -168,14 +167,14 @@ def guardar_operador(cedula, nombre, apellido, rol, foto_bytes, meta):
         'fecha_registro': time.strftime("%Y-%m-%d %H:%M:%S")
     }
     try:
-        res = requests.put(f"{FIREBASE_URL}/operadores/{cedula}.json", data=json.dumps(payload), timeout=2.0)
+        res = requests.put(f"{FIREBASE_URL}/operadores/{cedula}.json", data=json.dumps(payload), timeout=1.5)
         return res.status_code == 200
     except Exception:
         return False
 
 def obtener_operador(cedula):
     try:
-        res = requests.get(f"{FIREBASE_URL}/operadores/{cedula}.json", timeout=2.0)
+        res = requests.get(f"{FIREBASE_URL}/operadores/{cedula}.json", timeout=1.5)
         if res.status_code == 200 and res.json():
             return res.json()
     except Exception:
@@ -184,7 +183,7 @@ def obtener_operador(cedula):
 
 def obtener_todos_operadores():
     try:
-        res = requests.get(f"{FIREBASE_URL}/operadores.json", timeout=2.0)
+        res = requests.get(f"{FIREBASE_URL}/operadores.json", timeout=1.5)
         if res.status_code == 200 and res.json():
             return res.json()
     except Exception:
@@ -197,13 +196,13 @@ def enviar_mensaje_db(remitente, cedula, texto, meta):
         'timestamp': time.strftime("%H:%M:%S - %d/%m/%Y"), 'ip': meta.get('ip')
     }
     try:
-        requests.post(f"{FIREBASE_URL}/mensajes.json", data=json.dumps(payload), timeout=1.5)
+        requests.post(f"{FIREBASE_URL}/mensajes.json", data=json.dumps(payload), timeout=1.0)
     except Exception:
         pass
 
 def obtener_mensajes():
     try:
-        res = requests.get(f"{FIREBASE_URL}/mensajes.json", timeout=2.0)
+        res = requests.get(f"{FIREBASE_URL}/mensajes.json", timeout=1.5)
         if res.status_code == 200 and res.json():
             return res.json()
     except Exception:
@@ -211,9 +210,52 @@ def obtener_mensajes():
     return {}
 
 # -----------------------------------------------------------------
-# 3. PRIMERA CAPA: LOGIN O ACCESO A REGISTRO
+# 3. GESTIÓN DE ESTADOS Y PANTALLAS (EVITA BLOQUEO DE CARGA)
 # -----------------------------------------------------------------
-if not st.session_state['acceso_concedido']:
+if st.session_state.get('modo_registro', False):
+    st.title("📝 Registro Oficial de Nuevo Operador / Personal")
+    st.markdown("Complete sus datos personales y realice la captura biométrica facial obligatoria.")
+    
+    with st.form(key="registro_form"):
+        col_r1, col_r2 = st.columns(2)
+        with col_r1:
+            reg_nombres = st.text_input("Nombres Completo")
+            reg_apellidos = st.text_input("Apellidos Completo")
+        with col_r2:
+            reg_cedula = st.text_input("Cédula de Identidad (ID)")
+            reg_llave = st.text_input("Llave de Autorización", type="password")
+            
+        st.markdown("### 📸 Captura Biométrica Facial en Vivo")
+        reg_foto = st.camera_input("Colóquese frente a la cámara")
+        
+        btn_registrar_user = st.form_submit_button("Completar Registro y Validar Biometría", use_container_width=True)
+        
+        if btn_registrar_user:
+            if not reg_nombres or not reg_apellidos or not reg_cedula or not reg_foto:
+                st.error("❌ Todos los campos son obligatorios.")
+            elif not hmac.compare_digest(reg_llave, LLAVE_MAESTRA):
+                st.error("❌ Llave de autorización inválida.")
+            else:
+                bytes_img = reg_foto.getvalue()
+                valido, msg = validar_rostro_biometrico_estricto(bytes_img)
+                if valido:
+                    meta = obtener_metadatos_red_detallados()
+                    rol = "Administrador Global" if reg_cedula == CEDULA_ADMIN_MAESTRO else "Operador Protegido (Empresa/Familia)"
+                    guardar_operador(reg_cedula, reg_nombres, reg_apellidos, rol, bytes_img, meta)
+                    
+                    st.success("✅ ¡Registro biométrico exitoso! Ya puede iniciar sesión.")
+                    st.session_state['modo_registro'] = False
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error(msg)
+                    
+    if st.button("⬅️ Volver al Login"):
+        st.session_state['modo_registro'] = False
+        st.rerun()
+    st.stop()
+
+elif not st.session_state['acceso_concedido']:
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("""
         <div class="login-box">
@@ -261,56 +303,7 @@ if not st.session_state['acceso_concedido']:
             
     st.stop()
 
-# -----------------------------------------------------------------
-# 4. SECCIÓN DE REGISTRO SEPARADA (NOMBRES, APELLIDOS, CÉDULA Y BIOMETRÍA)
-# -----------------------------------------------------------------
-if st.session_state.get('modo_registro', False) and not st.session_state['autenticado']:
-    st.title("📝 Registro Oficial de Nuevo Operador / Personal")
-    st.markdown("Complete sus datos personales y realice la captura biométrica facial obligatoria.")
-    
-    with st.form(key="registro_form"):
-        col_r1, col_r2 = st.columns(2)
-        with col_r1:
-            reg_nombres = st.text_input("Nombres Completo")
-            reg_apellidos = st.text_input("Apellidos Completo")
-        with col_r2:
-            reg_cedula = st.text_input("Cédula de Identidad (ID)")
-            reg_llave = st.text_input("Llave de Autorización", type="password")
-            
-        st.markdown("### 📸 Captura Biométrica Facial en Vivo")
-        reg_foto = st.camera_input("Colóquese frente a la cámara")
-        
-        btn_registrar_user = st.form_submit_button("Completar Registro y Validar Biometría", use_container_width=True)
-        
-        if btn_registrar_user:
-            if not reg_nombres or not reg_apellidos or not reg_cedula or not reg_foto:
-                st.error("❌ Todos los campos son obligatorios.")
-            elif not hmac.compare_digest(reg_llave, LLAVE_MAESTRA):
-                st.error("❌ Llave de autorización inválida.")
-            else:
-                bytes_img = reg_foto.getvalue()
-                valido, msg = validar_rostro_biometrico_estricto(bytes_img)
-                if valido:
-                    meta = obtener_metadatos_red_detallados()
-                    rol = "Administrador Global" if reg_cedula == CEDULA_ADMIN_MAESTRO else "Operador Protegido (Empresa/Familia)"
-                    guardar_operador(reg_cedula, reg_nombres, reg_apellidos, rol, bytes_img, meta)
-                    
-                    st.success("✅ ¡Registro biométrico exitoso! Ya puede iniciar sesión.")
-                    time.sleep(1.5)
-                    st.session_state['modo_registro'] = False
-                    st.rerun()
-                else:
-                    st.error(msg)
-                    
-    if st.button("⬅️ Volver al Login"):
-        st.session_state['modo_registro'] = False
-        st.rerun()
-    st.stop()
-
-# -----------------------------------------------------------------
-# 5. SEGUNDA CAPA: VERIFICACIÓN FACIAL DE ACCESO (SI YA ESTÁ REGISTRADO)
-# -----------------------------------------------------------------
-if not st.session_state['autenticado']:
+elif not st.session_state['autenticado']:
     st.title("👤 Verificación Biométrica Obligatoria")
     st.markdown("Confirme su identidad mediante escaneo facial para acceder al panel.")
     
@@ -339,14 +332,14 @@ if not st.session_state['autenticado']:
                 
                 registrar_conexion_auditoria(nombre_u, st.session_state['cedula_actual'], "Conexión Biométrica Exitosa", meta)
                 st.success(msg)
-                time.sleep(0.8)
+                time.sleep(0.5)
                 st.rerun()
             else:
                 st.error(msg)
     st.stop()
 
 # -----------------------------------------------------------------
-# 6. PANEL DE COMANDO PRINCIPAL Y NAVEGACIÓN
+# 4. PANEL DE COMANDO PRINCIPAL Y NAVEGACIÓN
 # -----------------------------------------------------------------
 es_admin = (st.session_state['cedula_actual'] == CEDULA_ADMIN_MAESTRO)
 
@@ -376,33 +369,29 @@ if eleccion == "🚪 Cerrar Sesión":
     st.rerun()
 
 # -----------------------------------------------------------------
-# MÓDULO 1: CHAT EN TIEMPO REAL (CON FRAGMENTO AUTOREFRESCABLE)
+# MÓDULO 1: CHAT EN TIEMPO REAL
 # -----------------------------------------------------------------
 elif eleccion == "💬 Canal de Chat en Tiempo Real":
     st.title("💬 Canal de Mensajería Segura")
     st.markdown("Comunicaciones cifradas con registro de IP de origen.")
     st.markdown("---")
     
-    @st.fragment(run_every="2s")
-    def render_chat_en_vivo():
-        mensajes = obtener_mensajes()
-        if mensajes:
-            for k, msg in sorted(mensajes.items(), key=lambda x: x[0])[-35:]:
-                es_mio = msg.get('remitente') == st.session_state['usuario_actual']
-                clase = "chat-bubble-user" if es_mio else "chat-bubble-other"
-                st.markdown(f"""
-                    <div class="{clase}">
-                        <small style="color: #94a3b8; font-size: 0.95em;"><b>{msg.get('remitente')}</b> (ID: {msg.get('cedula')}) • {msg.get('timestamp')} • IP: {msg.get('ip')}</small><br>
-                        <span style="font-size: 1.15em;">{msg.get('texto')}</span>
-                    </div>
-                """, unsafe_allow_html=True)
-        else:
-            st.info("No hay mensajes en el canal.")
+    mensajes = obtener_mensajes()
+    if mensajes:
+        for k, msg in sorted(mensajes.items(), key=lambda x: x[0])[-35:]:
+            es_mio = msg.get('remitente') == st.session_state['usuario_actual']
+            clase = "chat-bubble-user" if es_mio else "chat-bubble-other"
+            st.markdown(f"""
+                <div class="{clase}">
+                    <small style="color: #94a3b8; font-size: 0.95em;"><b>{msg.get('remitente')}</b> (ID: {msg.get('cedula')}) • {msg.get('timestamp')} • IP: {msg.get('ip')}</small><br>
+                    <span style="font-size: 1.15em;">{msg.get('texto')}</span>
+                </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("No hay mensajes en el canal.")
 
-    render_chat_en_vivo()
-    
     with st.form(key="chat_envio_form", clear_on_submit=True):
-        txt_msg = st.text_input("Escribe un mensaje en tiempo real...", placeholder="Mensaje...")
+        txt_msg = st.text_input("Escribe un mensaje...", placeholder="Mensaje...")
         enviar_btn = st.form_submit_button("Enviar Mensaje 🚀", use_container_width=True)
         if enviar_btn and txt_msg:
             meta = obtener_metadatos_red_detallados()
@@ -410,7 +399,7 @@ elif eleccion == "💬 Canal de Chat en Tiempo Real":
             st.rerun()
 
 # -----------------------------------------------------------------
-# MÓDULO 2: CONTROL Y REGISTRO DE OPERADORES (CON FOTO REAL)
+# MÓDULO 2: CONTROL Y REGISTRO DE OPERADORES
 # -----------------------------------------------------------------
 elif eleccion == "👥 Control y Registro de Operadores":
     if not es_admin:
