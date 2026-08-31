@@ -425,4 +425,5 @@ else:
                 with col1:
                     if 'foto' in datos and datos['foto']:
                         try:
-                            st.image(base64.b64decode(datos['foto']), width=160, caption="Bio
+                            foto_bytes = base64.b64decode(datos['foto'])
+                    
