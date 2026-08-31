@@ -310,12 +310,8 @@ else:
         st.markdown("Transmisión instantánea de mensajes, archivos adjuntos, imágenes, videos y comandos operativos.")
         st.markdown("---")
         
-        st.markdown("""
-            <meta http-equiv="refresh" content="3">
-            <script>
-               window.scrollTo(0, document.body.scrollHeight);
-            </script>
-        """, unsafe_allow_html=True)
+        st.markdown('<meta http-equiv="refresh" content="3">', unsafe_allow_html=True)
+        st.markdown('<script>window.scrollTo(0, document.body.scrollHeight);</script>', unsafe_allow_html=True)
 
         chat_container = st.container()
         with chat_container:
@@ -326,12 +322,13 @@ else:
                     es_mio = msg.get('remitente') == st.session_state['usuario_actual']
                     estilo = "chat-bubble-user" if es_mio else "chat-bubble-other"
                     
-                    st.markdown(f"""
-                        <div class="{estilo}">
-                            <small style="color: #94a3b8;"><b>{msg.get('remitente')}</b> • {msg.get('timestamp')} • 🌐 {msg.get('ip')}</small><br>
-                            <span style="font-size: 1.15em; word-break: break-all;">{msg.get('texto')}</span>
-                        </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(
+                        f'<div class="{estilo}">'
+                        f'<small style="color: #94a3b8;"><b>{msg.get("remitente")}</b> • {msg.get("timestamp")} • 🌐 {msg.get("ip")}</small><br>'
+                        f'<span style="font-size: 1.15em; word-break: break-all;">{msg.get("texto")}</span>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
                     
                     if msg.get('archivo'):
                         try:
@@ -421,4 +418,4 @@ else:
                     time.sleep(1.8)
                     st.markdown("""
                     <div class="tool-box">
-                        <p style="color: #10b981;"><b>[+] 
+                        <p style="color: #10b981;"><b>[+]
