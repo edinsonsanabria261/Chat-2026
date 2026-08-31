@@ -295,7 +295,6 @@ else:
         st.markdown("Transmisión instantánea tipo WhatsApp con soporte completo para imágenes, videos, audios y música.")
         st.markdown("---")
         
-        # Auto-refresco en vivo optimizado para alta velocidad
         st.markdown("""
             <meta http-equiv="refresh" content="3">
             <script>
@@ -417,4 +416,5 @@ else:
 
         with tab3:
             st.markdown("### Escáner de Dispositivos y Telemetría de Red Local")
-            st.write("Analiza las características del nodo actua
+            st.write("Analiza las características del nodo actual y dispositivos conectados en el entorno inmediato.")
+        
