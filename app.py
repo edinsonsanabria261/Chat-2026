@@ -162,7 +162,7 @@ def obtener_auditorias():
     return {}
 
 # -----------------------------------------------------------------
-# 3. SCRIPTS DE HARDWARE Y AUTO-REFRESCO PARA MENSAJES INSTANTÁNEOS
+# 3. SCRIPTS DE HARDWARE Y AUTO-REFRESCO
 # -----------------------------------------------------------------
 def inyectar_telemetria_y_refresco():
     component_code = """
@@ -330,6 +330,7 @@ else:
                         <div class="{estilo}">
                             <small style="color: #94a3b8;"><b>{msg.get('remitente')}</b> • {msg.get('timestamp')} • 🌐 {msg.get('ip')}</small><br>
                             <span style="font-size: 1.15em; word-break: break-all;">{msg.get('texto')}</span>
+                        </div>
                     """, unsafe_allow_html=True)
                     
                     if msg.get('archivo'):
@@ -344,7 +345,6 @@ else:
                                 st.download_button("📥 Descargar Archivo Adjunto", archivo_bytes, file_name="archivo_tactico.bin", key=f"dl_{k}")
                         except:
                             pass
-                    st.markdown("</div>", unsafe_allow_html=True)
             else:
                 st.info("Canal sincronizado. Envíe su primer mensaje o archivo adjunto.")
 
@@ -420,4 +420,5 @@ else:
                 with st.spinner("Sondeando puertos y servicios..."):
                     time.sleep(1.8)
                     st.markdown("""
-                    <div class="tool-bo
+                    <div class="tool-box">
+                        <p style="color: #10b981;"><b>[+] 
