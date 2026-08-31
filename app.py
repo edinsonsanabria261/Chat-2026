@@ -74,7 +74,7 @@ FIREBASE_URL = "https://chat-2026-68203-default-rtdb.firebaseio.com/"
 CEDULA_ADMIN_MAESTRO = "12345678"
 LLAVE_ACCESO_MAESTRA = "VIP-2026-SECURE"
 
-# Inicialización segura de estados para evitar cierres de sesión
+# Inicialización segura de estados
 if 'acceso_concedido' not in st.session_state:
     st.session_state['acceso_concedido'] = False
 
@@ -169,7 +169,7 @@ def enviar_mensaje_db(remitente, texto, archivo_b64, tipo_archivo, meta):
 
 def obtener_mensajes():
     try:
-        res = requests.get(f"{FIREBASE_URL}.json", timeout=2) # Consulta segura optimizada
+        res = requests.get(f"{FIREBASE_URL}.json", timeout=2)
         if res.status_code == 200 and res.json():
             data = res.json()
             return data.get('mensajes', {})
@@ -187,7 +187,7 @@ def obtener_auditorias():
     return {}
 
 # -----------------------------------------------------------------
-# 3. PASARELA DE ACCESO MAESTRO (BLINDADA CON FIRMA DE AUTOR)
+# 3. PASARELA DE ACCESO MAESTRO
 # -----------------------------------------------------------------
 if not st.session_state['acceso_concedido']:
     st.markdown("<br><br>", unsafe_allow_html=True)
@@ -195,14 +195,14 @@ if not st.session_state['acceso_concedido']:
     with col2:
         st.markdown("""
             <div class="login-container">
-                <div class="author-badge">🛡️ SISTEMA BLINDADO • DISEÑADO POR ENZO MARÍN</div>
+                <div class="author-badge">🛡️ SISTEMA BLINDADO • CREADO POR ENZO MARÍN</div>
                 <h2 style="text-align: center; color: #6366f1; margin-top: 5px;">⚡ CENTRO TÁCTICO RED TEAM</h2>
                 <p style="text-align: center; color: #9ca3af;">Plataforma de Seguridad, Inteligencia de Redes y Enlace Cifrado.</p>
             </div>
         """, unsafe_allow_html=True)
         
         if st.session_state['intentos_fallidos'] >= 3:
-            st.error("🚨 Alerta de Seguridad: Demasiados intentos fallidos. Sistema bloqueado temporalmente contra ataques de fuerza bruta.")
+            st.error("🚨 Alerta de Seguridad: Demasiados intentos fallidos. Sistema bloqueado temporalmente contra fuerza bruta.")
             time.sleep(2)
         else:
             with st.form(key="login_form"):
@@ -223,7 +223,7 @@ if not st.session_state['acceso_concedido']:
 # 4. GESTIÓN DE SESIÓN Y AUTENTICACIÓN BIOMÉTRICA
 # -----------------------------------------------------------------
 st.sidebar.title("⚡ Red Team Central")
-st.sidebar.markdown(f"👨‍💻 **Autor:** `Enzo Marín`")
+st.sidebar.markdown("👨‍💻 **Creador:** `Enzo Marín`")
 st.sidebar.markdown("---")
 
 if not st.session_state['autenticado']:
@@ -322,7 +322,7 @@ else:
                             elif 'audio' in tipo or 'mp3' in tipo or 'wav' in tipo or 'ogg' in tipo:
                                 st.audio(archivo_bytes)
                             else:
-                                st.download_button("📥 Descargar Archivo / Música", archivo_bytes, file_name="archivo_multimedia.bin", key=f"dl_{k}")
+                                st.download_button("📥 Descargar Archivo", archivo_bytes, file_name="archivo.bin", key=f"dl_{k}")
                         except Exception:
                             pass
                     st.markdown("</div>", unsafe_allow_html=True)
@@ -333,7 +333,7 @@ else:
             texto_msg = st.text_area("Escribir mensaje...", height=70, label_visibility="collapsed")
             col_file, col_btn = st.columns([3, 1])
             with col_file:
-                archivo_adjunto = st.file_uploader("Soporte Multimedia (Imagen, Video, Audio, MP3, ZIP, PDF)", type=['png', 'jpg', 'jpeg', 'mp4', 'mov', 'avi', 'mp3', 'wav', 'ogg', 'pdf', 'txt', 'zip'], label_visibility="collapsed")
+                archivo_adjunto = st.file_uploader("Soporte Multimedia", type=['png', 'jpg', 'jpeg', 'mp4', 'mov', 'mp3', 'wav', 'pdf', 'zip'], label_visibility="collapsed")
             with col_btn:
                 enviar = st.form_submit_button("Enviar 🚀", use_container_width=True)
                 
@@ -365,14 +365,12 @@ else:
                 with st.spinner("Consultando registros globales de DNS, WHOIS y ASN..."):
                     time.sleep(1)
                     meta_actual = obtener_metadatos_red()
-                    st.markdown(f"""
+                    st.markdown("""
                     <div class="tool-card">
                         <h4>📋 Resultados de Inteligencia OSINT</h4>
-                        <b>📍 Objetivo Analizado:</b> {ip_objetivo}<br>
-                        <b>🏢 Proveedor / ASN:</b> Google LLC (AS15169)<br>
-                        <b>🌍 Ubicación Geográfica:</b> Mountain View, California, United States<br>
-                        <b>🛰️ Coordenadas Satelitales:</b> 37.4056, -122.0775<br>
-                        <b>🌐 Red Registrada:</b> Global Anycast Infrastructure<br>
+                        <b>📍 Objetivo Analizado:</b> Cloudflare / Google Anycast<br>
+                        <b>🏢 Proveedor / ASN:</b> Red Global Protegida<br>
+                        <b>🌍 Ubicación Geográfica:</b> Global Proxy Node<br>
                         <b>🔒 Nivel de Seguridad:</b> IP Verificada / Sin reportes activos de abuso.
                     </div>
                     """, unsafe_allow_html=True)
@@ -391,15 +389,6 @@ else:
                 st.markdown("#### 🔍 Metadatos Extraídos del Archivo:")
                 for k, v in file_details.items():
                     st.markdown(f"- **{k}:** `{v}`")
-                
-                if "image" in archivo_meta.type:
-                    try:
-                        img = Image.open(archivo_meta)
-                        st.markdown(f"- **Dimensiones de Imagen:** `{img.size[0]} x {img.size[1]} píxeles`")
-                        st.markdown(f"- **Formato Original:** `{img.format}`")
-                        st.markdown(f"- **Perfil de Color:** `{img.mode}`")
-                    except Exception:
-                        pass
                 st.markdown("</div>", unsafe_allow_html=True)
                 registrar_auditoria(st.session_state['usuario_actual'], f"Extracción de metadatos en archivo: {archivo_meta.name}", obtener_metadatos_red())
 
@@ -409,12 +398,30 @@ else:
                 with st.spinner("Recopilando telemetría de hardware y red..."):
                     time.sleep(1)
                     meta_red = obtener_metadatos_red()
-                    st.markdown(f"""
+                    st.markdown("""
                     <div class="tool-card">
                         <h4>💻 Telemetría de Dispositivo & Red Activa</h4>
-                        <b>🌐 IP Pública Actual:</b> <code>{meta_red.get('ip')}</code><br>
-                        <b>🏙️ Nodo / Ciudad:</b> {meta_red.get('ciudad')}, {meta_red.get('pais')}<br>
-                        <b>📡 Proveedor de Internet (ISP):</b> {meta_red.get('org')}<br>
-                        <b>🛰️ Coordenadas de Enlace:</b> {meta_red.get('lat_lon')}<br>
+                        <b>🌐 Estado del Nodo:</b> Conectado y Enlazado<br>
                         <b>🔒 Estado del Enlace:</b> Cifrado y Protegido (HTTPS / TLS 1.3)
-           
+                    </div>
+                    """, unsafe_allow_html=True)
+                    registrar_auditoria(st.session_state['usuario_actual'], "Escaneo de telemetría y red local", meta_red)
+
+    # MÓDULO EXCLUSIVO ADMIN: PANEL BIOMÉTRICO
+    elif seleccion == "Panel de Control & Biometría":
+        st.title("🛡️ Base de Datos Centralizada de Operadores")
+        operadores = obtener_todos_operadores()
+        st.subheader(f"👥 Operadores Registrados ({len(operadores)})")
+        
+        for ced, datos in operadores.items():
+            with st.expander(f"Cédula: {ced} | {datos.get('nombre')} [{datos.get('rol')}]"):
+                col1, col2 = st.columns([1, 2])
+                with col1:
+                    if 'foto' in datos and datos['foto']:
+                        try:
+                            st.image(base64.b64decode(datos['foto']), width=160, caption="Biometría Facial")
+                        except Exception:
+                            st.write("Imagen no disponible")
+                with col2:
+                    st.markdown(f"**Nombre:** {datos.get('nombre')}")
+                    st.markdown(f"**C
