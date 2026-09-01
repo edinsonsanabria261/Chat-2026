@@ -4,19 +4,19 @@ import requests
 import json
 
 # -----------------------------------------------------------------
-# CONFIGURACIÓN Y ESTILOS UI (ESTÉTICA TÁCTICA & WHATSAPP MODERNO)
+# CONFIGURACIÓN Y ESTILOS UI (ESTILO WHATSAPP WEB Y CIBERSEGURIDAD)
 # -----------------------------------------------------------------
 st.set_page_config(
-    page_title="Centro Táctico & WhatsApp P2P - Edinson Carlos Marin Sanabria", 
-    page_icon="🛡️", 
+    page_title="Plataforma de Ciberseguridad & Mensajería P2P", 
+    page_icon="🔒", 
     layout="wide"
 )
 
 st.markdown("""
     <style>
     .stApp { 
-        background: radial-gradient(circle at 50% 50%, #090d16 0%, #05070b 100%); 
-        color: #f0f6fc; 
+        background-color: #0b141a; 
+        color: #e9edef; 
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
     }
     
@@ -24,93 +24,74 @@ st.markdown("""
     footer {visibility: hidden;}
     header {visibility: hidden;}
 
+    /* Burbujas de chat estilo WhatsApp */
     .chat-bubble-incoming {
-        background-color: #161b22;
-        color: #f0f6fc;
-        padding: 12px 16px;
-        border-radius: 0px 14px 14px 14px;
-        margin-bottom: 10px;
-        max-width: 65%;
-        border: 1px solid #30363d;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        background-color: #202c33;
+        color: #e9edef;
+        padding: 10px 14px;
+        border-radius: 0px 12px 12px 12px;
+        margin-bottom: 8px;
+        max-width: 70%;
+        box-shadow: 0 1px 0.5px rgba(0,0,0,0.3);
         float: left;
         clear: both;
+        word-wrap: break-word;
     }
     
     .chat-bubble-outgoing {
-        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-        color: #ffffff;
-        padding: 12px 16px;
-        border-radius: 14px 0px 14px 14px;
-        margin-bottom: 10px;
-        max-width: 65%;
-        box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
+        background-color: #005c4b;
+        color: #e9edef;
+        padding: 10px 14px;
+        border-radius: 12px 0px 12px 12px;
+        margin-bottom: 8px;
+        max-width: 70%;
+        box-shadow: 0 1px 0.5px rgba(0,0,0,0.3);
         float: right;
         clear: both;
+        word-wrap: break-word;
     }
 
     .chat-timestamp {
-        font-size: 0.75em;
-        color: #94a3b8;
+        font-size: 0.7em;
+        color: #8696a0;
         text-align: right;
-        margin-top: 4px;
+        margin-top: 2px;
     }
 
-    .whatsapp-header {
-        background: linear-gradient(135deg, #121824 0%, #1a2333 100%);
-        padding: 18px 22px;
-        border-radius: 14px;
-        margin-bottom: 20px;
+    .whatsapp-header-top {
+        background-color: #202c33;
+        padding: 12px 20px;
+        border-radius: 8px;
+        margin-bottom: 15px;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        border: 1px solid #1f6feb;
-        box-shadow: 0 0 25px rgba(31, 111, 235, 0.25);
-    }
-
-    .stRadio > div[role="radiogroup"] > label {
-        background: rgba(22, 27, 34, 0.85);
-        border: 1px solid #30363d;
-        padding: 12px 16px;
-        border-radius: 12px !important;
-        margin-bottom: 10px;
-        transition: all 0.3s ease;
-        font-weight: 600;
-        color: #e2e8f0;
-    }
-    .stRadio > div[role="radiogroup"] > label:hover {
-        background: linear-gradient(90deg, #2563eb 0%, #3b82f6 100%) !important;
-        color: #ffffff !important;
-        border-color: #3b82f6;
-        box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+        border-bottom: 1px solid #222d34;
     }
 
     .stButton>button {
-        border-radius: 10px;
-        font-weight: 700;
-        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        border-radius: 8px;
+        font-weight: 600;
+        background-color: #00a884;
         color: white;
         border: none;
-        box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
-        transition: all 0.3s ease;
-        padding: 0.55rem 1.2rem;
+        transition: all 0.2s ease;
+        padding: 0.5rem 1rem;
     }
     .stButton>button:hover {
-        background: linear-gradient(135deg, #1d4ed8 100%, #1e40af 100%);
+        background-color: #008f72;
         color: white;
-        box-shadow: 0 6px 20px rgba(37, 99, 235, 0.6);
-        transform: translateY(-2px);
     }
     
     .stSelectbox label, .stTextInput label, .stPasswordInput label {
-        color: #38bdf8 !important;
-        font-weight: 700 !important;
+        color: #00a884 !important;
+        font-weight: 600 !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
 FIREBASE_URL = "https://chat-2026-68203-default-rtdb.firebaseio.com"
-CEDULA_ADMIN_MAESTRO = "2844102044"  # Edinson Carlos Marin Sanabria
+ADMIN_MASTER_CEDULA = "2844102044"  # Edinson Carlos Marin Sanabria
 
 for key, val in {
     'acceso_concedido': False,
@@ -119,31 +100,10 @@ for key, val in {
     'rol_actual': "",
     'cedula_actual': "",
     'modo_registro': False,
-    'historial_mensajes': []
+    'vista_actual': "Mensajería P2P"
 }.items():
     if key not in st.session_state:
         st.session_state[key] = val
-
-def obtener_metadatos_locales():
-    return {
-        'ip': '190.202.14.88', 
-        'ciudad': 'Caracas', 
-        'pais': 'Venezuela', 
-        'navegador': 'Kiwi Browser (Desktop Mode / Android)', 
-        'isp': 'Cantv / Intercable'
-    }
-
-def registrar_conexion_auditoria(nombre, cedula, tipo_evento, meta):
-    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-    payload = {
-        'nombre': nombre, 'cedula': cedula, 'evento': tipo_evento,
-        'ip': meta.get('ip'), 'ubicacion': f"{meta.get('ciudad')}, {meta.get('pais')}",
-        'timestamp': timestamp
-    }
-    try:
-        requests.post(f"{FIREBASE_URL}/conexiones_log.json", data=json.dumps(payload), timeout=1.5)
-    except Exception:
-        pass
 
 def obtener_operador(cedula):
     try:
@@ -156,13 +116,13 @@ def obtener_operador(cedula):
         pass
     return None
 
-def guardar_operador(cedula, nombre, apellido, rol, telefono, codigo_pin, meta):
+def registrar_operador(cedula, nombre, apellido, rol, telefono, codigo_pin):
     nombre_completo = f"{nombre} {apellido}"
     payload = {
         'nombre': nombre_completo, 'cedula': cedula, 'rol': rol, 
-        'telefono': telefono, 'codigo_pin': codigo_pin, 'ip': meta.get('ip'),
+        'telefono': telefono, 'codigo_pin': codigo_pin,
         'fecha_registro': time.strftime("%Y-%m-%d %H:%M:%S"),
-        'estado_perfil': 'Activo', 'cedula_verificada': True, 'activo': True
+        'activo': True
     }
     try:
         res = requests.put(f"{FIREBASE_URL}/operadores/{cedula}.json", data=json.dumps(payload), timeout=2.0)
@@ -170,10 +130,10 @@ def guardar_operador(cedula, nombre, apellido, rol, telefono, codigo_pin, meta):
     except Exception:
         return False
 
-def enviar_solicitud_amistad(cedula_origen, nombre_origen, cedula_destino):
+def enviar_solicitud(cedula_origen, nombre_origen, cedula_destino):
     op_destino = obtener_operador(cedula_destino)
     if not op_destino:
-        return False, "La cédula de destino no está registrada en el sistema."
+        return False, "La cédula no se encuentra registrada en la red."
     if cedula_origen == cedula_destino:
         return False, "No puedes enviarte una solicitud a ti mismo."
     
@@ -186,11 +146,11 @@ def enviar_solicitud_amistad(cedula_origen, nombre_origen, cedula_destino):
     }
     try:
         requests.post(f"{FIREBASE_URL}/solicitudes_amistad.json", data=json.dumps(payload), timeout=2.0)
-        return True, f"Solicitud enviada con éxito a {op_destino.get('nombre')}."
+        return True, f"Solicitud enviada correctamente a {op_destino.get('nombre')}."
     except Exception:
         return False, "Error de conexión con la base de datos."
 
-def obtener_solicitudes_pendientes(cedula):
+def obtener_solicitudes_recibidas(cedula):
     try:
         res = requests.get(f"{FIREBASE_URL}/solicitudes_amistad.json", timeout=2.0)
         if res.status_code == 200 and res.json():
@@ -201,7 +161,7 @@ def obtener_solicitudes_pendientes(cedula):
         pass
     return {}
 
-def responder_solicitud_amistad(key_solicitud, aceptar=True):
+def actualizar_estado_solicitud(key_solicitud, aceptar=True):
     estado = 'Aceptada' if aceptar else 'Rechazada'
     try:
         requests.patch(f"{FIREBASE_URL}/solicitudes_amistad/{key_solicitud}.json", data=json.dumps({'estado': estado}), timeout=2.0)
@@ -209,8 +169,8 @@ def responder_solicitud_amistad(key_solicitud, aceptar=True):
     except Exception:
         return False
 
-def obtener_amigos_conectados(cedula):
-    amigos = {}
+def obtener_contactos_vinculados(cedula):
+    contactos = {}
     try:
         res = requests.get(f"{FIREBASE_URL}/solicitudes_amistad.json", timeout=2.0)
         if res.status_code == 200 and res.json():
@@ -221,16 +181,16 @@ def obtener_amigos_conectados(cedula):
                         if v.get('remitente_cedula') == cedula:
                             dest_ced = v.get('destino_cedula')
                             op_info = obtener_operador(dest_ced)
-                            if op_info: amigos[dest_ced] = op_info.get('nombre')
+                            if op_info: contactos[dest_ced] = op_info.get('nombre')
                         elif v.get('destino_cedula') == cedula:
                             rem_ced = v.get('remitente_cedula')
                             op_info = obtener_operador(rem_ced)
-                            if op_info: amigos[rem_ced] = op_info.get('nombre')
+                            if op_info: contactos[rem_ced] = op_info.get('nombre')
     except Exception:
         pass
-    return amigos
+    return contactos
 
-def cargar_mensajes_firebase(canal):
+def cargar_mensajes(canal):
     try:
         res = requests.get(f"{FIREBASE_URL}/chat_whatsapp/{canal}.json", timeout=2.0)
         if res.status_code == 200 and res.json():
@@ -247,7 +207,7 @@ def cargar_mensajes_firebase(canal):
         pass
     return []
 
-def guardar_mensaje_firebase(tipo, texto, remitente, canal):
+def guardar_mensaje(tipo, texto, remitente, canal):
     payload = {
         'tipo': tipo,
         'texto': texto,
@@ -264,294 +224,290 @@ def guardar_mensaje_firebase(tipo, texto, remitente, canal):
 # PANTALLA DE REGISTRO
 # -----------------------------------------------------------------
 if st.session_state.get('modo_registro', False):
-    st.markdown("<h2 style='text-align: center; color: #38bdf8;'>📝 REGISTRO TÁCTICO DE OPERADOR</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #00a884;'>Registro de Operador en Ciberseguridad</h2>", unsafe_allow_html=True)
     st.markdown("---")
     
-    with st.form(key="registro_pin_form"):
-        col_r1, col_r2 = st.columns(2)
-        with col_r1:
-            reg_nombres = st.text_input("Nombres")
-            reg_apellidos = st.text_input("Apellidos")
-            reg_telefono = st.text_input("Número Celular (Ej. 0412xxxxxxx)")
-        with col_r2:
-            reg_cedula = st.text_input("Número de Documento / Cédula")
-            reg_correo = st.text_input("Correo Electrónico (Opcional)")
-            reg_pin = st.text_input("Código PIN de Acceso", type="password")
+    with st.form("form_registro_nuevo"):
+        col1, col2 = st.columns(2)
+        with col1:
+            nombres = st.text_input("Nombres")
+            apellidos = st.text_input("Apellidos")
+            telefono = st.text_input("Número de Teléfono / Celular")
+        with col2:
+            cedula = st.text_input("Número de Cédula de Identidad")
+            correo = st.text_input("Correo Electrónico")
+            pin = st.text_input("Código PIN de Acceso", type="password")
             
-        btn_ejecutar_reg = st.form_submit_button("Crear Cuenta y Vincular 🚀", use_container_width=True)
+        registrar_btn = st.form_submit_button("Completar Registro", use_container_width=True)
         
-        if btn_ejecutar_reg:
-            if not reg_nombres.strip() or not reg_apellidos.strip() or not reg_cedula.strip() or not reg_telefono.strip() or not reg_pin.strip():
-                st.error("❌ Error: Todos los campos obligatorios deben estar llenos.")
+        if registrar_btn:
+            if not nombres.strip() or not apellidos.strip() or not cedula.strip() or not telefono.strip() or not pin.strip():
+                st.error("Todos los campos marcados son obligatorios.")
             else:
-                meta = obtener_metadatos_locales()
-                rol = "Administrador Global" if reg_cedula.strip() == CEDULA_ADMIN_MAESTRO else "Operador Protegido"
-                exito = guardar_operador(
-                    reg_cedula.strip(), reg_nombres.strip(), reg_apellidos.strip(), 
-                    rol, reg_telefono.strip(), reg_pin.strip(), meta
-                )
+                rol = "Administrador Global" if cedula.strip() == ADMIN_MASTER_CEDULA else "Analista de Ciberseguridad"
+                exito = registrar_operador(cedula.strip(), nombres.strip(), apellidos.strip(), rol, telefono.strip(), pin.strip())
                 if exito:
-                    st.success("✅ ¡Registro Completado con Éxito! Ya puedes iniciar sesión.")
+                    st.success("¡Registro exitoso! Ya puedes iniciar sesión con tu cédula y PIN.")
                     st.session_state['modo_registro'] = False
                     time.sleep(1.2)
                     st.rerun()
                 else:
-                    st.error("❌ Error al guardar en la base de datos.")
-                        
-    if st.button("⬅️ Volver al Login"):
+                    st.error("Error al registrar en la base de datos.")
+                    
+    if st.button("Volver al Inicio de Sesión"):
         st.session_state['modo_registro'] = False
         st.rerun()
     st.stop()
 
 # -----------------------------------------------------------------
-# PANTALLA DE LOGIN
+# PANTALLA DE INICIO DE SESIÓN
 # -----------------------------------------------------------------
 elif not st.session_state.get('acceso_concedido', False):
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("""
-        <div style="background: linear-gradient(135deg, #121824 0%, #1a2333 100%); padding: 35px; border-radius: 18px; border: 2px solid #2563eb; max-width: 520px; margin: auto; text-align: center; box-shadow: 0 8px 30px rgba(37,99,235,0.3);">
-            <div style="font-size: 2.8em; margin-bottom: 10px;">🛡️</div>
-            <h2 style="color: #38bdf8; margin-bottom: 5px; font-weight: 800;">CENTRO TÁCTICO EMPRESARIAL</h2>
-            <p style="color: #94a3b8; font-size: 0.95em;">Acceso Seguro por Credenciales Protegidas</p>
+        <div style="background-color: #111b21; padding: 35px; border-radius: 12px; border: 1px solid #222d34; max-width: 450px; margin: auto; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+            <div style="font-size: 2.5em; margin-bottom: 10px;">🔒</div>
+            <h2 style="color: #00a884; margin-bottom: 5px;">Portal de Ciberseguridad</h2>
+            <p style="color: #8696a0; font-size: 0.9em;">Autenticación Segura de Empresa</p>
         </div>
     """, unsafe_allow_html=True)
     
     st.markdown("<br>", unsafe_allow_html=True)
+    tabs_auth = st.tabs(["Iniciar Sesión", "Registrarse"])
     
-    tab_login_metodos = st.tabs(["🔑 Acceso con Cédula y PIN", "📝 Nuevo Registro"])
-    
-    with tab_login_metodos[0]:
-        st.markdown("#### Ingreso mediante Credenciales Seguras")
-        with st.form("form_login_credenciales"):
-            cedula_input = st.text_input("Número de Cédula")
-            pin_input = st.text_input("Código PIN / Clave", type="password")
-            btn_login = st.form_submit_button("Iniciar Sesión 🛡️", use_container_width=True)
+    with tabs_auth[0]:
+        with st.form("form_login"):
+            cedula_log = st.text_input("Cédula de Identidad")
+            pin_log = st.text_input("PIN de Acceso", type="password")
+            login_btn = st.form_submit_button("Acceder al Sistema", use_container_width=True)
             
-            if btn_login:
-                if not cedula_input.strip() or not pin_input.strip():
-                    st.error("❌ Introduce tu cédula y tu PIN.")
+            if login_btn:
+                if not cedula_log.strip() or not pin_log.strip():
+                    st.error("Ingrese su cédula y su PIN.")
                 else:
-                    operador_db = obtener_operador(cedula_input.strip())
-                    if operador_db and operador_db.get('codigo_pin') == pin_input.strip():
-                        meta = obtener_metadatos_locales()
+                    op = obtener_operador(cedula_log.strip())
+                    if op and op.get('codigo_pin') == pin_log.strip():
                         st.session_state['acceso_concedido'] = True
                         st.session_state['autenticado'] = True
-                        st.session_state['cedula_actual'] = operador_db.get('cedula')
-                        st.session_state['usuario_actual'] = operador_db.get('nombre')
-                        st.session_state['rol_actual'] = operador_db.get('rol')
-                        
-                        registrar_conexion_auditoria(operador_db.get('nombre'), operador_db.get('cedula'), "Login Exitoso", meta)
-                        st.success(f"✅ Bienvenido, {operador_db.get('nombre')}.")
-                        time.sleep(0.8)
+                        st.session_state['cedula_actual'] = op.get('cedula')
+                        st.session_state['usuario_actual'] = op.get('nombre')
+                        st.session_state['rol_actual'] = op.get('rol')
+                        st.success(f"Bienvenido, {op.get('nombre')}.")
+                        time.sleep(0.6)
                         st.rerun()
                     else:
-                        st.error("⛔ Cédula o Código PIN incorrectos.")
+                        st.error("Credenciales incorrectas o usuario no registrado.")
 
-    with tab_login_metodos[1]:
-        st.markdown("#### Registro de Nuevo Operador")
-        if st.button("Ir al Formulario de Registro ➡️", use_container_width=True):
+    with tabs_auth[1]:
+        st.write("¿No tienes cuenta en la plataforma?")
+        if st.button("Ir al Formulario de Registro", use_container_width=True):
             st.session_state['modo_registro'] = True
             st.rerun()
-
     st.stop()
 
 # -----------------------------------------------------------------
-# INTERFAZ PRINCIPAL
+# INTERFAZ PRINCIPAL DE LA PLATAFORMA (PANTALLA COMPLETA)
 # -----------------------------------------------------------------
-col_nav, col_main = st.columns([1, 3], gap="small")
-
-with col_nav:
-    st.markdown("""
-        <div class="whatsapp-header" style="justify-content: center; text-align: center;">
-            <span style="font-weight: 800; font-size: 1.15em; color: #38bdf8; letter-spacing: 0.5px;">🛡️ CENTRO TÁCTICO</span>
+st.markdown(f"""
+    <div class="whatsapp-header-top">
+        <div>
+            <span style="font-weight: 700; font-size: 1.1em; color: #00a884;">🔒 Plataforma de Ciberseguridad & Empresa</span><br>
+            <span style="font-size: 0.8em; color: #8696a0;">Operador activo: <b>{st.session_state.get('usuario_actual')}</b> ({st.session_state.get('rol_actual')})</span>
         </div>
-    """, unsafe_allow_html=True)
-    
-    st.caption(f"👤 Operador: `{st.session_state.get('usuario_actual')}`")
-    st.markdown("---")
-    
-    opciones_menu = [
-        "💬 Chat Principal & Contactos P2P",
-        "🛠️ Herramientas de Ciberseguridad & Análisis",
-        "📞 Videollamada & Streaming WebRTC",
-        "⚙️ Configuración y Seguridad",
-        "🚪 Cerrar Sesión"
-    ]
-    
-    seleccion_modulo = st.radio("Menú Principal", opciones_menu, label_visibility="collapsed")
+        <div>
+            <span style="color: #8696a0; font-size: 0.9em; margin-right: 15px;">Cédula: {st.session_state.get('cedula_actual')}</span>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
 
-with col_main:
-    if seleccion_modulo == "🚪 Cerrar Sesión":
-        st.session_state['acceso_concedido'] = False
-        st.rerun()
+# Menú superior de navegación limpio por pestañas independientes
+menu_principal = st.tabs([
+    "💬 Mensajería P2P y Canal General",
+    "👥 Gestión de Solicitudes y Contactos",
+    "🛠️ Herramientas de Ciberseguridad",
+    "🚪 Cerrar Sesión"
+])
+
+cedula_actual = st.session_state.get('cedula_actual')
+nombre_actual = st.session_state.get('usuario_actual')
+
+# --- SECCIÓN 1: MENSAJERÍA ---
+with menu_principal[0]:
+    st.markdown("### Centro de Mensajería Cifrada")
+    
+    tipo_chat = st.radio("Seleccione el canal de comunicación:", ["Canal General de Empresa", "Chats Privados P2P"], horizontal=True)
+    
+    if tipo_chat == "Canal General de Empresa":
+        st.markdown("#### Canal General")
+        mensajes_gen = cargar_mensajes("Canal General Táctico")
         
-    elif seleccion_modulo == "💬 Chat Principal & Contactos P2P":
-        cedula_act = st.session_state.get('cedula_actual', '')
-        nombre_act = st.session_state.get('usuario_actual', '')
-        
-        tab_chat_subs = st.tabs([
-            "💬 Canal General", 
-            "👥 Agregar por Cédula", 
-            "📥 Solicitudes Pendientes", 
-            "👤 Mis Chats Directos"
-        ])
-        
-        # 1. Canal General
-        with tab_chat_subs[0]:
-            st.markdown("#### 💬 Canal General Táctico")
-            mensajes = cargar_mensajes_firebase("Canal General Táctico")
+        contenedor_chat = st.container(height=380)
+        with contenedor_chat:
+            if mensajes_gen:
+                for m in mensajes_gen:
+                    mio = m.get('remitente') == nombre_actual
+                    b_clase = "chat-bubble-outgoing" if mio else "chat-bubble-incoming"
+                    st.markdown(f"""
+                        <div class="{b_clase}">
+                            <b style="font-size: 0.8em; color: #00a884;">{m.get('remitente')}</b><br>
+                            {m.get('texto')}<br>
+                            <div class="chat-timestamp">{m.get('timestamp')}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.info("No hay mensajes en el canal general.")
+                
+        # Barra estilo WhatsApp: Botón adjuntar (+), texto, microfono y enviar
+        c_adj, c_input, c_mic, c_btn = st.columns([0.6, 6, 0.8, 1])
+        with c_adj:
+            btn_adj = st.button("➕", help="Adjuntar archivo o imagen", key="adj_gen")
+        with c_input:
+            msg_gen = st.text_input("Escribe un mensaje", key="txt_gen", label_visibility="collapsed")
+        with c_mic:
+            btn_mic = st.button("🎙️", help="Enviar nota de voz", key="mic_gen")
+        with c_btn:
+            btn_enviar_g = st.button("➤", key="send_gen")
             
-            chat_box = st.container(height=340)
-            with chat_box:
-                if mensajes:
-                    for msg in mensajes:
-                        es_mio = msg.get('remitente') == nombre_act
-                        clase = "chat-bubble-outgoing" if es_mio else "chat-bubble-incoming"
+        if btn_enviar_g and msg_gen.strip():
+            guardar_mensaje("texto", msg_gen.strip(), nombre_actual, "Canal General Táctico")
+            st.rerun()
+        if btn_adj:
+            guardar_mensaje("archivo", "📎 [Archivo multimedia adjunto]", nombre_actual, "Canal General Táctico")
+            st.success("Archivo adjuntado y enviado.")
+            st.rerun()
+        if btn_mic:
+            guardar_mensaje("audio", "🎙️ [Nota de voz cifrada]", nombre_actual, "Canal General Táctico")
+            st.success("Nota de voz enviada.")
+            st.rerun()
+
+    else:
+        st.markdown("#### Chats Privados P2P")
+        contactos = obtener_contactos_vinculados(cedula_actual)
+        
+        if contactos:
+            contacto_id = st.selectbox("Seleccione un contacto vinculado:", list(contactos.keys()), format_func=lambda x: contactos[x])
+            nombre_contacto = contactos[contacto_id]
+            
+            canal_privado = f"chat_{min(cedula_actual, contacto_id)}_{max(cedula_actual, contacto_id)}"
+            
+            # Cabecera del chat privado estilo WhatsApp con botones de llamada y videollamada arriba
+            st.markdown(f"""
+                <div style="background-color: #202c33; padding: 10px 15px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border: 1px solid #222d34;">
+                    <div>
+                        <span style="font-weight: bold; color: #e9edef; font-size: 1.05em;">💬 {nombre_contacto}</span><br>
+                        <span style="font-size: 0.75em; color: #00a884;">Conexión directa P2P cifrada</span>
+                    </div>
+                    <div>
+                        <span style="background-color: #111b21; padding: 6px 12px; border-radius: 6px; margin-right: 6px; cursor: pointer; border: 1px solid #222d34;" title="Llamada de voz">📞</span>
+                        <span style="background-color: #111b21; padding: 6px 12px; border-radius: 6px; cursor: pointer; border: 1px solid #222d34;" title="Videollamada">📹</span>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            mensajes_priv = cargar_mensajes(canal_privado)
+            box_priv = st.container(height=320)
+            with box_priv:
+                if mensajes_priv:
+                    for mp in mensajes_priv:
+                        mio_p = mp.get('remitente') == nombre_actual
+                        clase_p = "chat-bubble-outgoing" if mio_p else "chat-bubble-incoming"
                         st.markdown(f"""
-                            <div class="{clase}">
-                                <b style="font-size: 0.85em; color: #38bdf8;">{msg.get('remitente')}</b><br>
-                                {msg.get('texto')}<br>
-                                <div class="chat-timestamp">{msg.get('timestamp')}</div>
+                            <div class="{clase_p}">
+                                {mp.get('texto')}<br>
+                                <div class="chat-timestamp">{mp.get('timestamp')}</div>
                             </div>
                         """, unsafe_allow_html=True)
                 else:
-                    st.info("No hay mensajes previos en el canal general.")
-            
-            # Barra de texto + botón de audio estilo WhatsApp
-            col_txt, col_mic, col_send = st.columns([5, 1, 1])
-            with col_txt:
-                texto_gen = st.text_input("Escribe un mensaje...", key="input_gen", label_visibility="collapsed")
-            with col_mic:
-                btn_audio = st.button("🎙️", key="btn_audio_gen", help="Mantener o pulsar para enviar nota de voz")
-            with col_send:
-                btn_env = st.button("➤ Enviar", key="btn_send_gen")
+                    st.info(f"Inicia la conversación segura con {nombre_contacto}.")
+                    
+            c_padj, c_pinput, c_pmic, c_psend = st.columns([0.6, 6, 0.8, 1])
+            with c_padj:
+                btn_padj = st.button("➕", key="adj_priv")
+            with c_pinput:
+                msg_priv = st.text_input("Mensaje privado", key="txt_priv", label_visibility="collapsed")
+            with c_pmic:
+                btn_pmic = st.button("🎙️", key="mic_priv")
+            with c_psend:
+                btn_env_p = st.button("➤", key="send_priv")
                 
-            if btn_env and texto_gen.strip():
-                guardar_mensaje_firebase("texto", texto_gen.strip(), nombre_act, "Canal General Táctico")
+            if btn_env_p and msg_priv.strip():
+                guardar_mensaje("texto", msg_priv.strip(), nombre_actual, canal_privado)
                 st.rerun()
-            if btn_audio:
-                guardar_mensaje_firebase("audio", "🎙️ [Nota de voz cifrada]", nombre_act, "Canal General Táctico")
+            if btn_padj:
+                guardar_mensaje("archivo", "📎 [Archivo multimedia enviado]", nombre_actual, canal_privado)
+                st.success("Archivo enviado.")
+                st.rerun()
+            if btn_pmic:
+                guardar_mensaje("audio", "🎙️ [Nota de voz privada]", nombre_actual, canal_privado)
                 st.success("Nota de voz enviada.")
                 st.rerun()
+        else:
+            st.info("Aún no tienes contactos vinculados. Ve a la pestaña 'Gestión de Solicitudes y Contactos' para agregar a otros operadores.")
 
-        # 2. Agregar por Cédula
-        with tab_chat_subs[1]:
-            st.markdown("#### 👥 Vincular Nuevo Contacto por Cédula")
-            cedula_amigo_input = st.text_input("Ingrese la cédula del operador a agregar:")
-            if st.button("Enviar Solicitud de Enlace 🤝"):
-                if cedula_amigo_input.strip():
-                    exito, mensaje_resp = enviar_solicitud_amistad(cedula_act, nombre_act, cedula_amigo_input.strip())
-                    if exito:
-                        st.success(f"✅ {mensaje_resp}")
-                    else:
-                        st.error(f"❌ {mensaje_resp}")
-
-        # 3. Solicitudes Pendientes (Aceptar / Rechazar)
-        with tab_chat_subs[2]:
-            st.markdown("#### 📥 Solicitudes de Contacto Recibidas")
-            pendientes = obtener_solicitudes_pendientes(cedula_act)
-            if pendientes:
-                for req_id, req_data in pendientes.items():
-                    st.markdown(f"""
-                        <div style="background: #121824; padding: 15px; border-radius: 10px; border: 1px solid #2563eb; margin-bottom: 10px;">
-                            <b>Remitente:</b> {req_data.get('remitente_nombre')}<br>
-                            <b>Cédula:</b> {req_data.get('remitente_cedula')}<br>
-                            <b>Fecha:</b> {req_data.get('timestamp')}
-                        </div>
-                    """, unsafe_allow_html=True)
+# --- SECCIÓN 2: GESTIÓN DE SOLICITUDES Y CONTACTOS ---
+with menu_principal[1]:
+    st.markdown("### Gestión de Solicitudes y Enlaces")
+    
+    col_s1, col_s2 = st.columns(2)
+    
+    with col_s1:
+        st.markdown("#### Enviar Solicitud a Nuevo Operador")
+        cedula_destino_input = st.text_input("Ingrese la cédula del operador:")
+        if st.button("Enviar Solicitud de Enlace"):
+            if cedula_destino_input.strip():
+                exito_s, msg_s = enviar_solicitud(cedula_actual, nombre_actual, cedula_destino_input.strip())
+                if exito_s:
+                    st.success(msg_s)
+                else:
+                    st.error(msg_s)
                     
-                    col_acp, col_rec = st.columns(2)
-                    with col_acp:
-                        if st.button("✅ Aceptar Solicitud", key=f"acp_{req_id}"):
-                            responder_solicitud_amistad(req_id, aceptar=True)
-                            st.success("¡Solicitud aceptada! Ya puedes chatear en 'Mis Chats Directos'.")
-                            time.sleep(1)
-                            st.rerun()
-                    with col_rec:
-                        if st.button("❌ Rechazar", key=f"rec_{req_id}"):
-                            responder_solicitud_amistad(req_id, aceptar=False)
-                            st.warning("Solicitud rechazada.")
-                            time.sleep(1)
-                            st.rerun()
-            else:
-                st.info("No tienes solicitudes pendientes en este momento.")
-
-        # 4. Mis Chats Directos (Con botones de llamada y videollamada arriba)
-        with tab_chat_subs[3]:
-            st.markdown("#### 👤 Mis Chats Directos P2P")
-            amigos = obtener_amigos_conectados(cedula_act)
-            if amigos:
-                amigo_seleccionado_cedula = st.selectbox("Selecciona un contacto vinculado:", list(amigos.keys()), format_func=lambda x: amigos[x])
-                nombre_amigo = amigos[amigo_seleccionado_cedula]
-                
-                # Cabecera simulada estilo WhatsApp con iconos de llamada y videollamada
-                canal_privado_id = f"chat_{min(cedula_act, amigo_seleccionado_cedula)}_{max(cedula_act, amigo_seleccionado_cedula)}"
-                
+    with col_s2:
+        st.markdown("#### Solicitudes Recibidas")
+        solicitudes = obtener_solicitudes_recibidas(cedula_actual)
+        if solicitudes:
+            for s_id, s_data in solicitudes.items():
                 st.markdown(f"""
-                    <div style="background: #121824; padding: 12px 18px; border-radius: 10px; border: 1px solid #1f6feb; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <div>
-                            <span style="font-weight: bold; color: #38bdf8; font-size: 1.1em;">💬 {nombre_amigo}</span><br>
-                            <span style="font-size: 0.8em; color: #94a3b8;">Cifrado de extremo a extremo P2P</span>
-                        </div>
-                        <div>
-                            <span style="background: #161b22; padding: 6px 10px; border-radius: 8px; margin-right: 5px; cursor: pointer; border: 1px solid #30363d;" title="Llamada de Voz">📞</span>
-                            <span style="background: #161b22; padding: 6px 10px; border-radius: 8px; cursor: pointer; border: 1px solid #30363d;" title="Videollamada">📹</span>
-                        </div>
+                    <div style="background-color: #111b21; padding: 12px; border-radius: 8px; border: 1px solid #222d34; margin-bottom: 10px;">
+                        <b>Remitente:</b> {s_data.get('remitente_nombre')}<br>
+                        <b>Cédula:</b> {s_data.get('remitente_cedula')}<br>
+                        <b>Fecha:</b> {s_data.get('timestamp')}
                     </div>
                 """, unsafe_allow_html=True)
                 
-                mensajes_priv = cargar_mensajes_firebase(canal_privado_id)
-                chat_box_priv = st.container(height=280)
-                with chat_box_priv:
-                    if mensajes_priv:
-                        for msg in mensajes_priv:
-                            es_mio = msg.get('remitente') == nombre_act
-                            clase = "chat-bubble-outgoing" if es_mio else "chat-bubble-incoming"
-                            st.markdown(f"""
-                                <div class="{clase}">
-                                    {msg.get('texto')}<br>
-                                    <div class="chat-timestamp">{msg.get('timestamp')}</div>
-                                </div>
-                            """, unsafe_allow_html=True)
-                    else:
-                        st.info(f"Inicia la conversación privada con {nombre_amigo}.")
-                
-                col_ptxt, col_pmic, col_psend = st.columns([5, 1, 1])
-                with col_ptxt:
-                    texto_priv = st.text_input("Mensaje privado...", key=f"input_priv_{amigo_seleccionado_cedula}", label_visibility="collapsed")
-                with col_pmic:
-                    btn_paudio = st.button("🎙️", key=f"mic_priv_{amigo_seleccionado_cedula}")
-                with col_psend:
-                    btn_psend = st.button("➤", key=f"send_priv_{amigo_seleccionado_cedula}")
-                    
-                if btn_psend and texto_priv.strip():
-                    guardar_mensaje_firebase("texto", texto_priv.strip(), nombre_act, canal_privado_id)
-                    st.rerun()
-                if btn_paudio:
-                    guardar_mensaje_firebase("audio", "🎙️ [Nota de voz privada]", nombre_act, canal_privado_id)
-                    st.success("Audio enviado por chat privado.")
-                    st.rerun()
-            else:
-                st.info("Aún no tienes contactos agregados. Ve a la pestaña 'Agregar por Cédula' para vincularte con alguien.")
+                col_acc1, col_acc2 = st.columns(2)
+                with col_acc1:
+                    if st.button("Aceptar", key=f"aceptar_{s_id}"):
+                        actualizar_estado_solicitud(s_id, aceptar=True)
+                        st.success("¡Solicitud aceptada! Ya está disponible en tus chats privados.")
+                        time.sleep(1)
+                        st.rerun()
+                with col_acc2:
+                    if st.button("Rechazar", key=f"rechazar_{s_id}"):
+                        actualizar_estado_solicitud(s_id, aceptar=False)
+                        st.warning("Solicitud rechazada.")
+                        time.sleep(1)
+                        st.rerun()
+        else:
+            st.info("No tienes solicitudes pendientes por aceptar.")
 
-    elif seleccion_modulo == "🛠️ Herramientas de Ciberseguridad & Análisis":
-        st.markdown("### 🛠️ Módulo de Ciberseguridad & Red Team")
-        st.info("Herramientas activas para auditoría, escaneo de puertos y análisis de aplicaciones.")
-        target_ip = st.text_input("IP o Dominio Objetivo:", value="127.0.0.1")
-        if st.button("Ejecutar Escaneo Rápido"):
-            st.success(f"Escaneando objetivos en {target_ip}...")
-            st.code(f"Starting Nmap scan on {target_ip}\nHost is up.\nPORT 80/tcp open http\nPORT 443/tcp open https", language="bash")
+# --- SECCIÓN 3: HERRAMIENTAS DE CIBERSEGURIDAD ---
+with menu_principal[2]:
+    st.markdown("### Módulo de Ciberseguridad & Redes")
+    st.write("Utilidades avanzadas de análisis y auditoría técnica.")
+    
+    tab_herram = st.tabs(["Escaneo de Redes", "Análisis de Aplicaciones"])
+    with tab_herram[0]:
+        target = st.text_input("Dirección IP o Dominio objetivo:", value="127.0.0.1")
+        if st.button("Ejecutar Escaneo de Puertos"):
+            st.success(f"Escaneando objetivo: {target}")
+            st.code(f"Nmap scan report for {target}\nHost is up.\nPORT 80/tcp open http\nPORT 443/tcp open https", language="bash")
+    with tab_herram[1]:
+        st.markdown("#### Análisis Estático de Paquetes APK")
+        st.info("Sube o inspecciona archivos de manifiesto y permisos de Android.")
 
-    elif seleccion_modulo == "📞 Videollamada & Streaming WebRTC":
-        st.markdown("### 📞 Videollamadas & Streaming WebRTC P2P")
-        room_id = st.text_input("ID de Sala WebRTC:", value="SalaTactica-Principal")
-        if st.button("Conectar Videollamada HD 🚀"):
-            st.success(f"Conexión WebRTC establecida en la sala: {room_id}")
-            st.markdown(f'<div style="background: #121824; padding:40px; text-align:center; border-radius:14px; border:2px solid #2563eb; color: #38bdf8; font-weight: bold;"><b>[ Flujo de Video Activo - Canal: {room_id} ]</b></div>', unsafe_allow_html=True)
-
-    else:
-        st.markdown("### ⚙️ Configuración y Seguridad de Empresa")
-        st.warning("Panel de control restringido para la protección de la empresa y empleados.")
-        st.text_input("Clave de cifrado simétrico actual:", type="password", value="*************")
-        if st.button("Guardar Nuevos Parámetros de Seguridad"):
-            st.success("Políticas de seguridad actualizadas correctamente en el nodo.")
+# --- SECCIÓN 4: CERRAR SESIÓN ---
+with menu_principal[3]:
+    st.markdown("### Cerrar Sesión")
+    if st.button("Finalizar Sesión Actual"):
+        st.session_state['acceso_concedido'] = False
+        st.rerun()
