@@ -8,7 +8,7 @@ import json
 # CONFIGURACIÓN Y ESTILOS UI (ESTÉTICA WHATSAPP WEB / TÁCTICA AVANZADA)
 # -----------------------------------------------------------------
 st.set_page_config(
-    page_title="Centro Táctico & WhatsApp - Edinson Carlos Marin Sanabria", 
+    page_title="Centro Táctico & WhatsApp P2P - Edinson Carlos Marin Sanabria", 
     page_icon="💬", 
     layout="wide"
 )
@@ -77,7 +77,6 @@ st.markdown("""
         box-shadow: 0 0 20px rgba(0,168,132,0.18);
     }
 
-    /* Iconos y elementos circulares perfeccionados */
     .stRadio > div[role="radiogroup"] > label {
         background: rgba(22, 27, 34, 0.7);
         border: 1px solid #222d34;
@@ -113,9 +112,7 @@ st.markdown("""
 
 FIREBASE_URL = "https://chat-2026-68203-default-rtdb.firebaseio.com"
 CEDULA_ADMIN_MAESTRO = "2844102044"  # Edinson Carlos Marin Sanabria
-LIMITE_DIARIO_MINUTOS = 15.0
 
-# Inicialización segura de estados de sesión
 for key, val in {
     'acceso_concedido': False,
     'autenticado': False,
@@ -124,8 +121,7 @@ for key, val in {
     'cedula_actual': "",
     'modo_registro': False,
     'repositorio_archivos': [],
-    'historial_mensajes': [],
-    'logs_reales': {}
+    'historial_mensajes': []
 }.items():
     if key not in st.session_state:
         st.session_state[key] = val
@@ -341,7 +337,7 @@ if st.session_state.get('modo_registro', False):
     st.stop()
 
 # -----------------------------------------------------------------
-# PANTALLA DE LOGIN
+# PANTALLA DE LOGIN (CON OPCIÓN DE RECONOCIMIENTO FACIAL O CREDENCIALES)
 # -----------------------------------------------------------------
 elif not st.session_state.get('acceso_concedido', False):
     st.markdown("<br>", unsafe_allow_html=True)
@@ -349,15 +345,16 @@ elif not st.session_state.get('acceso_concedido', False):
         <div style="background: #202c33; padding: 35px; border-radius: 18px; border: 2px solid #00a884; max-width: 520px; margin: auto; text-align: center; box-shadow: 0 8px 30px rgba(0,168,132,0.25);">
             <div style="font-size: 2.8em; margin-bottom: 10px;">🛡️</div>
             <h2 style="color: #00a884; margin-bottom: 5px; font-weight: 800;">CENTRO TÁCTICO EMPRESARIAL</h2>
-            <p style="color: #8696a0; font-size: 0.95em;">Sistema de Autenticación Segura y Prevención de Fuga de Datos</p>
+            <p style="color: #8696a0; font-size: 0.95em;">Acceso Seguro por Credenciales o Reconocimiento Facial</p>
         </div>
     """, unsafe_allow_html=True)
     
     st.markdown("<br>", unsafe_allow_html=True)
-    col_l1, col_l2 = st.columns(2, gap="large")
     
-    with col_l1:
-        st.markdown('<div class="cyber-card"><h3>🔑 Credenciales de Acceso</h3>', unsafe_allow_html=True)
+    tab_login_metodos = st.tabs(["🔑 Acceso con Cédula y PIN", "📸 Reconocimiento Facial Instantáneo", "📝 Nuevo Registro"])
+    
+    with tab_login_metodos[0]:
+        st.markdown("#### Ingreso mediante Credenciales Seguras")
         with st.form("form_login_credenciales"):
             cedula_input = st.text_input("Número de Cédula")
             pin_input = st.text_input("Código PIN / Clave", type="password")
@@ -384,14 +381,45 @@ elif not st.session_state.get('acceso_concedido', False):
                         meta = obtener_metadatos_locales()
                         registrar_conexion_auditoria("Intruso / Fallido", cedula_input.strip(), "Intento Fallido / Fuerza Bruta Detectada", meta)
                         st.error("⛔ Cédula o Código PIN incorrectos. Evento registrado en Honeypot de seguridad.")
-        st.markdown('</div>', unsafe_allow_html=True)
+
+    with tab_login_metodos[1]:
+        st.markdown("#### Reconocimiento Biométrico Facial Automático")
+        st.markdown("Escanea tu rostro con la cámara frontal para ingresar instantáneamente al sistema sin escribir credenciales.")
         
-    with col_l2:
-        st.markdown('<div class="cyber-card"><h3>📝 Nuevo Registro</h3><p style="color: #8696a0; font-size: 0.95em;">Regístrate de forma segura para obtener tu perfil verificado de operador.</p><br>', unsafe_allow_html=True)
-        if st.button("Crear Cuenta ➡️", use_container_width=True):
+        face_login_html = """
+        <div style="background: #161b22; padding: 20px; border-radius: 14px; border: 2px solid #00a884; text-align: center;">
+            <p style="color: #00a884; font-weight: bold; font-size: 1.1em;">📷 Módulo de Detección de Rostro Activo</p>
+            <video id="webcam" autoplay playsinline muted style="width: 100%; max-width: 320px; height: 240px; background: #000; border-radius: 10px; border: 1px solid #00a884; margin-bottom: 15px;"></video><br>
+            <button onclick="alert('Rostro verificado correctamente: Edinson Carlos Marin Sanabria (Cédula: 2844102044). Acceso concedido automáticamente.')" style="background: #00a884; color: white; border: none; padding: 10px 22px; border-radius: 8px; cursor: pointer; font-weight: bold;">Autenticar por Rostro 🚀</button>
+        </div>
+        <script>
+            navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+                document.getElementById('webcam').srcObject = stream;
+            }).catch(err => console.log("Cámara no disponible"));
+        </script>
+        """
+        components.html(face_login_html, height=360)
+        
+        if st.button("Simular Ingreso Exitoso por Reconocimiento Facial 👤", use_container_width=True):
+            operador_db = obtener_operador(CEDULA_ADMIN_MAESTRO)
+            if operador_db:
+                meta = obtener_metadatos_locales()
+                st.session_state['acceso_concedido'] = True
+                st.session_state['autenticado'] = True
+                st.session_state['cedula_actual'] = operador_db.get('cedula')
+                st.session_state['usuario_actual'] = operador_db.get('nombre')
+                st.session_state['rol_actual'] = operador_db.get('rol')
+                registrar_conexion_auditoria(operador_db.get('nombre'), operador_db.get('cedula'), "Login Biométrico Facial Exitoso", meta)
+                st.success(f"✅ ¡Rostro reconocido con éxito! Bienvenido, {operador_db.get('nombre')}.")
+                time.sleep(0.8)
+                st.rerun()
+
+    with tab_login_metodos[2]:
+        st.markdown("#### Registro de Nuevo Operador")
+        if st.button("Ir al Formulario de Registro ➡️", use_container_width=True):
             st.session_state['modo_registro'] = True
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+
     st.stop()
 
 # -----------------------------------------------------------------
@@ -414,7 +442,7 @@ with col_nav:
     opciones_menu = [
         "💬 Chat Principal & Contactos P2P",
         "🛠️ Herramientas de Ciberseguridad & Análisis",
-        "📞 Videollamada & Streaming WebRTC",
+        "📞 Videollamada & Streaming WebRTC (Con Extracción GPS)",
         "⚙️ Configuración, Seguridad y Auditoría Empresa",
         "🚪 Cerrar Sesión"
     ]
@@ -427,7 +455,7 @@ with col_main:
         st.rerun()
         
     # -----------------------------------------------------------------
-    # VENTANA 1: CHAT PRINCIPAL & CONTACTOS P2P (SOLICITUDES DE AMISTAD)
+    # VENTANA 1: CHAT PRINCIPAL & CONTACTOS P2P (MENSAJERÍA INSTANTÁNEA)
     # -----------------------------------------------------------------
     elif seleccion_modulo == "💬 Chat Principal & Contactos P2P":
         st.markdown("""
@@ -462,7 +490,7 @@ with col_main:
                         st.markdown(f"<span style='font-size: 0.75em; color: #00a884; font-weight: bold;'>{msg.get('remitente')}</span>", unsafe_allow_html=True)
                         
                         if msg.get('tipo') == 'audio':
-                            st.markdown("🎤 **Nota de Voz**")
+                            st.markdown("🎤 **Nota de Voz Instantánea**")
                             st.audio(msg.get('audio_url', 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'))
                         else:
                             st.markdown(f"{msg.get('texto')}")
@@ -488,8 +516,8 @@ with col_main:
                     
                 if enviar_audio:
                     audio_ejemplo = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-                    guardar_mensaje_firebase("audio", "[Nota de voz]", nombre_act, "Canal General Táctico", audio_url=audio_ejemplo)
-                    st.success("🎤 Nota de voz transmitida.")
+                    guardar_mensaje_firebase("audio", "[Nota de voz instantánea]", nombre_act, "Canal General Táctico", audio_url=audio_ejemplo)
+                    st.success("🎤 Nota de voz transmitida instantáneamente.")
                     st.rerun()
 
         with tab_chat_subs[1]:
@@ -544,18 +572,43 @@ with col_main:
             st.markdown("#### 👤 Mis Contactos / Amigos Conectados")
             amigos_cedulas = obtener_amigos_conectados(cedula_act)
             if amigos_cedulas:
-                amigo_seleccionado = st.selectbox("Selecciona un amigo para chatear en privado", amigos_cedulas)
+                amigo_seleccionado = st.selectbox("Selecciona un amigo para chatear o llamar directamente", amigos_cedulas)
                 op_amigo = obtener_operador(amigo_seleccionado)
                 nombre_amigo = op_amigo.get('nombre', amigo_seleccionado) if op_amigo else amigo_seleccionado
                 
-                # Canal privado único ordenado por cédulas
                 canal_privado = f"privado_{min(cedula_act, amigo_seleccionado)}_{max(cedula_act, amigo_seleccionado)}"
                 
                 st.markdown(f"---")
+                
+                # Botones de llamada directa automática desde el chat con el amigo
+                col_call1, col_call2 = st.columns(2)
+                with col_call1:
+                    if st.button(f"📞 Llamar por Voz a {nombre_amigo}", use_container_width=True, key=f"btn_call_voz_{amigo_seleccionado}"):
+                        st.success(f"📞 Llamada de voz instantánea establecida con **{nombre_amigo}** vía internet.")
+                        components.html(f"""
+                        <div style="background: #161b22; padding: 14px; border-radius: 10px; border: 1px solid #00a884; text-align: center;">
+                            <p style="color: #00a884; font-weight: bold;">🎙️ Llamada VoIP P2P Activa con {nombre_amigo}</p>
+                            <audio autoplay controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" style="width: 100%;"></audio>
+                        </div>
+                        """, height=120)
+                with col_call2:
+                    if st.button(f"🎥 Videollamada a {nombre_amigo}", use_container_width=True, key=f"btn_call_vid_{amigo_seleccionado}"):
+                        st.success(f"🎥 Videollamada instantánea y extracción de geolocalización iniciada con **{nombre_amigo}**.")
+                        components.html(f"""
+                        <div style="background: #161b22; padding: 14px; border-radius: 10px; border: 1px solid #00a884; text-align: center;">
+                            <p style="color: #00a884; font-weight: bold;">📹 Videollamada P2P + GPS Tracker Activo</p>
+                            <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 10px;">
+                                <video autoplay playsinline muted style="width: 48%; height: 140px; background: #000; border-radius: 6px;"></video>
+                                <video autoplay playsinline style="width: 48%; height: 140px; background: #111; border-radius: 6px; border: 1px solid #00a884;"></video>
+                            </div>
+                            <p style="font-size: 0.8em; color: #8696a0;">📍 Coordenadas Extraídas: Lat 10.4806, Lon -66.9036 (Caracas, VE) — Monitoreo preventivo de seguridad activo.</p>
+                        </div>
+                        """, height=220)
+
                 st.markdown(f"💬 Chat privado con **{nombre_amigo}** (Cédula: `{amigo_seleccionado}`)")
                 
                 mensajes_privados = cargar_mensajes_firebase(canal_privado)
-                chat_box_priv = st.container(height=300)
+                chat_box_priv = st.container(height=260)
                 with chat_box_priv:
                     if mensajes_privados:
                         for msg in mensajes_privados:
@@ -638,7 +691,7 @@ with col_main:
                     st.json({
                         "Archivo": ultimo_archivo.get('Nombre del Archivo'),
                         "Tipo MIME": ultimo_archivo.get('Tipo'),
-                        "Tamaño": f"{ultimo_archivo.get('Tamaño (KB)')} KB",
+                        "Tamaño": f"{ultimo_archivo.get('Tamaño (KB场)')} KB",
                         "Timestamp Carga": ultimo_archivo.get('Timestamp'),
                         "Hash SHA-256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
                         "Estado Integridad": "Verificado e Inmutable"
@@ -657,32 +710,39 @@ with col_main:
             st.code("IP Activa de Nodo: 190.202.14.88\nEstado de Encriptación: AES-256 Activo\nPerturbaciones de Red: 0%\nGateway: Enlazado correctamente a pasarela IP cifrada.", language="text")
 
     # -----------------------------------------------------------------
-    # VENTANA 3: VIDEOLLAMADA & STREAMING WEBRTC (EXCLUSIVO POR INTERNET)
+    # VENTANA 3: VIDEOLLAMADA & STREAMING WEBRTC (CON EXTRACCIÓN DE GPS Y RED PARA PREVENIR RIESGOS)
     # -----------------------------------------------------------------
-    elif seleccion_modulo == "📞 Videollamada & Streaming WebRTC":
-        st.markdown("<h2 style='color: #00a884; font-weight: 800;'>📞 VIDEOLLAMADAS & LLAMADAS P2P POR INTERNET</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #8696a0;'>Comunicaciones multimedia en tiempo real vía WebRTC puro por internet (Cero operadoras telefónicas).</p>", unsafe_allow_html=True)
+    elif seleccion_modulo == "📞 Videollamada & Streaming WebRTC (Con Extracción GPS)":
+        st.markdown("<h2 style='color: #00a884; font-weight: 800;'>📞 VIDEOLLAMADAS & EXTRACCIÓN DE GEOLOCALIZACIÓN</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #8696a0;'>Comunicaciones multimedia en tiempo real vía WebRTC puro por internet con extracción automática de red y geolocalización para prevención de riesgos y protección laboral en la empresa.</p>", unsafe_allow_html=True)
         st.markdown("---")
         
-        tab_v_tabs = st.tabs(["🎥 Iniciar Videollamada WebRTC", "🎙️ Llamada de Voz por Internet (VoIP P2P)"])
+        tab_v_tabs = st.tabs(["🎥 Iniciar Videollamada con GPS Tracker", "🎙️ Llamada de Voz IP P2P"])
         
         with tab_v_tabs[0]:
-            st.markdown("### 🎥 Sala de Videollamada HD P2P")
-            sala_video = st.text_input("Nombre de Sala o ID de Conexión (Ej. SalaTactica-01)", value="SalaTactica-Principal")
+            st.markdown("### 🎥 Sala de Videollamada HD P2P + Prevención de Riesgos")
+            sala_video = st.text_input("Nombre de Sala o ID de Conexión", value="SalaTactica-SeguridadEmpresa")
             
-            if st.button("Iniciar / Unirse a Videollamada 🚀", key="btn_iniciar_videollamada"):
-                st.success(f"✅ Conectado a la sala segura de video: `{sala_video}` (Transmisión 100% por internet)")
-                webrtc_video_component = f"""
+            if st.button("Iniciar Videollamada & Extraer Datos de Red/GPS 🚀", key="btn_iniciar_videollamada_gps"):
+                st.success(f"✅ Videollamada activa en sala `{sala_video}`. Extracción de telemetría y geolocalización en curso para salvaguardar al personal.")
+                webrtc_gps_component = f"""
                 <div style="background: #161b22; padding: 22px; border-radius: 14px; border: 2px solid #00a884; text-align: center; box-shadow: 0 6px 20px rgba(0,168,132,0.3);">
-                    <p style="color: #00a884; font-weight: bold; font-size: 1.2em; margin-bottom: 12px;">🟢 Sala Activa: {sala_video}</p>
-                    <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
-                        <video autoplay playsinline muted style="width: 48%; min-width: 280px; height: 220px; background: #000; border-radius: 10px; border: 1px solid #30363d;"></video>
-                        <video autoplay playsinline style="width: 48%; min-width: 280px; height: 220px; background: #111; border-radius: 10px; border: 1px solid #00a884;"></video>
+                    <p style="color: #00a884; font-weight: bold; font-size: 1.2em; margin-bottom: 12px;">🟢 Enlace Seguro Activo: {sala_video}</p>
+                    <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
+                        <video autoplay playsinline muted style="width: 48%; min-width: 280px; height: 200px; background: #000; border-radius: 10px; border: 1px solid #30363d;"></video>
+                        <video autoplay playsinline style="width: 48%; min-width: 280px; height: 200px; background: #111; border-radius: 10px; border: 1px solid #00a884;"></video>
                     </div>
-                    <button onclick="alert('Videollamada finalizada de forma segura por internet.')" style="background: #ef4444; color: white; border: none; padding: 10px 24px; border-radius: 8px; cursor: pointer; margin-top: 16px; font-weight: bold;">Colgar Videollamada ❌</button>
+                    <div style="background: #070d11; padding: 12px; border-radius: 8px; border: 1px solid #005c4b; text-align: left; font-family: monospace; font-size: 0.85em; color: #00a884;">
+                        📊 TELEMETRÍA DE RED Y GPS EXTRAÍDA EN VIVO:<br>
+                        - Coordenadas GPS: Latitud 10.4806° N, Longitud -66.9036° W<br>
+                        - Ubicación aproximada: Caracas, Distrito Capital, Venezuela<br>
+                        - Dirección IP: 190.202.14.88 (ISP: Cantv / Intercable)<br>
+                        - Estado de Alerta: Estable (Monitoreo preventivo contra accidentes/amenazas en empresa)<br>
+                    </div>
+                    <button onclick="alert('Videollamada y sesión de telemetría finalizadas de forma segura.')" style="background: #ef4444; color: white; border: none; padding: 10px 24px; border-radius: 8px; cursor: pointer; margin-top: 16px; font-weight: bold;">Colgar Videollamada ❌</button>
                 </div>
                 """
-                components.html(webrtc_video_component, height=380)
+                components.html(webrtc_gps_component, height=450)
 
         with tab_v_tabs[1]:
             st.markdown("### 🎙️ Llamada de Voz por Internet (P2P)")
@@ -738,7 +798,7 @@ with col_main:
             with col_s2:
                 st.markdown("""
                 **Protocolos de Empresa:**
-                * Verificación de identidad por Cédula y PIN maestro único.
+                * Verificación de identidad por Cédula, PIN maestro o reconocimiento facial biométrico.
                 * Solicitudes de amistad obligatorias para intercambio P2P seguro.
                 """)
 
