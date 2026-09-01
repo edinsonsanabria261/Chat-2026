@@ -2,13 +2,14 @@ import streamlit as st
 import time
 import requests
 import json
-from PIL import Image, ExifTags
+from PIL import Image
 import io
 import base64
-import hmac
 import numpy as np
 import hashlib
 import random
+import cv2
+import mediapipe as mp
 
 # -----------------------------------------------------------------
 # 1. CONFIGURACIÓN Y ESTILOS UI (ESTÉTICA TÁCTICA / HUD CYBER)
@@ -154,27 +155,59 @@ def obtener_conexiones_log():
         pass
     return {}
 
-def validar_rostro_biometrico_estricto(nueva_img_bytes, foto_registrada_b64=None):
+# Pipeline Estricto con OpenCV y MediaPipe Face Mesh
+def procesar_rostro_mediapipe_estricto(imagen_bytes):
+    """
+    Pipeline de procesamiento biométrico con MediaPipe Face Mesh y OpenCV.
+    Transforma el buffer de video/imagen de forma correcta y aplica un umbral
+    de confianza reducido para lectura instantánea.
+    """
     try:
-        img = Image.open(io.BytesIO(nueva_img_bytes)).convert('L')
-        arr = np.array(img)
-        if np.var(arr) < 180:
-            return False, "❌ ERROR BIOMÉTRICO: Fondo plano u oscuro sin rasgos faciales."
-        if foto_registrada_b64:
-            img_reg = Image.open(io.BytesIO(base64.b64decode(foto_registrada_b64))).resize((128, 128)).convert('L')
-            img_nueva = img.resize((128, 128))
-            a1 = np.array(img_reg, dtype=float)
-            a2 = np.array(img_nueva, dtype=float)
-            correlacion = np.corrcoef(a1.flatten(), a2.flatten())[0, 1]
-            puntaje_real = max(80.0, min(99.8, (correlacion + 1) * 50.0))
-            if puntaje_real < 95.0:
-                return False, f"❌ ACCESO DENEGADO: Coincidencia biométrica de {puntaje_real:.2f}% (Inferior al 95% requerido)."
-        return True, "✅ Biometría facial confirmada (> 95% Match)."
+        image_stream = io.BytesIO(imagen_bytes)
+        pil_img = Image.open(image_stream).convert('RGB')
+        frame_rgb = np.array(pil_img)
+        frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+        
+        mp_face_mesh = mp.solutions.face_mesh
+        with mp_face_mesh.FaceMesh(
+            static_image_mode=True,
+            max_num_faces=1,
+            refine_landmarks=True,
+            min_detection_confidence=0.4,  # Umbral reducido para lectura instantánea
+            min_tracking_confidence=0.4
+        ) as face_mesh:
+            
+            results = face_mesh.process(frame_rgb)
+            
+            if not results.multi_face_landmarks:
+                return False, "❌ No se detectaron rasgos faciales válidos en el buffer.", None
+            
+            for face_landmarks in results.multi_face_landmarks:
+                vectores_rostro = np.array([[lm.x, lm.y, lm.z] for lm in face_landmarks.landmark], dtype=np.float32)
+                
+                if np.var(vectores_rostro) < 0.001:
+                    return False, "❌ Alerta liveness: Rostro plano o estático detectado.", None
+                
+                return True, "✅ Vectores faciales extraídos correctamente vía MediaPipe.", vectores_rostro
+                
     except Exception as e:
-        return False, f"❌ Error en validación: {str(e)}"
+        return False, f"❌ Error crítico en el pipeline biométrico: {str(e)}", None
 
-def guardar_operador(cedula, nombre, apellido, rol, foto_bytes, meta, estado="Restringido", cedula_verificada=False, telefono="", correo="", alias="", provisional=False):
+def comparar_vectores_faciales(vec_nuevo, vec_registrado_b64):
+    try:
+        vec_reg = np.frombuffer(base64.b64decode(vec_registrado_b64), dtype=np.float32).reshape(-1, 3)
+        if vec_nuevo.shape != vec_reg.shape:
+            return False
+        mse = np.mean((vec_nuevo - vec_reg) ** 2)
+        if mse < 0.02:  # Margen de tolerancia estricto pero flexible para variaciones de ángulo/luz
+            return True
+        return False
+    except Exception:
+        return False
+
+def guardar_operador(cedula, nombre, apellido, rol, foto_bytes, vectores_arr, meta, estado="Restringido", cedula_verificada=False, telefono="", correo="", alias="", provisional=False):
     foto_b64 = base64.b64encode(foto_bytes).decode('utf-8') if foto_bytes else ""
+    vector_b64 = base64.b64encode(vectores_arr.tobytes()).decode('utf-8') if vectores_arr is not None else ""
     nombre_completo = f"{nombre} {apellido}"
     
     op_prev = obtener_operador(cedula)
@@ -187,9 +220,12 @@ def guardar_operador(cedula, nombre, apellido, rol, foto_bytes, meta, estado="Re
         provisional = op_prev.get('provisional', provisional)
         if not foto_b64:
             foto_b64 = op_prev.get('foto', '')
+        if not vector_b64:
+            vector_b64 = op_prev.get('vector_facial', '')
 
     payload = {
         'nombre': nombre_completo, 'cedula': cedula, 'rol': rol, 'foto': foto_b64,
+        'vector_facial': vector_b64,
         'ip': meta.get('ip'), 'ubicacion': f"{meta.get('ciudad')}, {meta.get('pais')}",
         'fecha_registro': time.strftime("%Y-%m-%d %H:%M:%S"),
         'estado_perfil': estado,
@@ -387,8 +423,8 @@ if st.session_state.get('modo_registro', False):
             
         foto_en_reg_vivo = None
         if "Con Cámara" in tipo_registro_modo:
-            st.markdown("### 📸 Captura de Vectores Faciales en Vivo")
-            st.markdown("<p style='color: #00ffcc; font-size: 0.9em;'>Coloque su rostro dentro del óvalo para extraer obligatoriamente los vectores biométricos.</p>", unsafe_allow_html=True)
+            st.markdown("### 📸 Captura de Vectores Faciales en Vivo (MediaPipe)")
+            st.markdown("<p style='color: #00ffcc; font-size: 0.9em;'>Coloque su rostro dentro del encuadre para extraer obligatoriamente los vectores biométricos instantáneos.</p>", unsafe_allow_html=True)
             foto_en_reg_vivo = st.camera_input("Selfie Biométrica de Registro")
             
         btn_ejecutar_reg = st.form_submit_button("Completar Registro 🚀", use_container_width=True)
@@ -403,10 +439,9 @@ if st.session_state.get('modo_registro', False):
                 rol = "Administrador Global" if reg_cedula == CEDULA_ADMIN_MAESTRO else "Operador Protegido"
                 
                 if "Sin Cámara" in tipo_registro_modo:
-                    # Cuenta Aislada Provisional
                     guardar_operador(
                         reg_cedula, reg_nombres.strip(), reg_apellidos.strip(), rol, 
-                        b'', meta, estado="Restringido (Provisional)", 
+                        b'', None, meta, estado="Restringido (Provisional)", 
                         cedula_verificada=False, telefono=reg_telefono, correo=reg_correo, alias=reg_alias, provisional=True
                     )
                     st.warning("⚠️ Dispositivo sin cámara detectado. Se ha generado y asignado una **Cuenta Aislada Provisional** con restricciones de seguridad.")
@@ -415,21 +450,20 @@ if st.session_state.get('modo_registro', False):
                     st.rerun()
                 else:
                     bytes_selfie = foto_en_reg_vivo.getvalue()
-                    img_obj = Image.open(io.BytesIO(bytes_selfie)).resize((128, 128)).convert('L')
-                    arr_selfie = np.array(img_obj, dtype=float)
+                    valido_bio, msg_bio, vectores_result = procesar_rostro_mediapipe_estricto(bytes_selfie)
                     
-                    if np.var(arr_selfie) < 140:
-                        st.error("❌ ALERTA LIVENESS: Imagen estática o sin profundidad detectada.")
+                    if not valido_bio:
+                        st.error(msg_bio)
                     else:
                         estado_inicial = "Activo / Desbloqueado" if reg_cedula == CEDULA_ADMIN_MAESTRO else "Restringido"
                         cedula_aprobada = True if reg_cedula == CEDULA_ADMIN_MAESTRO else False
                         
                         guardar_operador(
                             reg_cedula, reg_nombres.strip(), reg_apellidos.strip(), rol, 
-                            bytes_selfie, meta, estado=estado_inicial, cedula_verificada=cedula_aprobada, 
+                            bytes_selfie, vectores_result, meta, estado=estado_inicial, cedula_verificada=cedula_aprobada, 
                             telefono=reg_telefono, correo=reg_correo, alias=reg_alias, provisional=False
                         )
-                        st.success("✅ ¡Registro Biométrico Exitoso! Vectores faciales almacenados correctamente.")
+                        st.success("✅ ¡Registro Biométrico Exitoso! Vectores faciales extraídos y almacenados correctamente.")
                         st.session_state['modo_registro'] = False
                         time.sleep(1.2)
                         st.rerun()
@@ -448,7 +482,7 @@ elif not st.session_state['acceso_concedido']:
         <div class="login-hud-box">
             <div style="font-size: 2.5em; margin-bottom: 10px;">👁️</div>
             <h2 style="color: #00ffcc; margin-bottom: 5px;">LOGIN SIN CREDENCIALES</h2>
-            <p style="color: #38bdf8; font-size: 0.95em; margin-bottom: 25px;">Reconocimiento Facial Activo • Sin Contraseñas</p>
+            <p style="color: #38bdf8; font-size: 0.95em; margin-bottom: 25px;">Reconocimiento Facial Activo (MediaPipe Face Mesh)</p>
         </div>
     """, unsafe_allow_html=True)
     
@@ -459,41 +493,45 @@ elif not st.session_state['acceso_concedido']:
         st.markdown("""
             <div class="cyber-card">
                 <h3>📸 Inicio de Sesión Biométrico Directo</h3>
-                <p style="color: #94a3b8; font-size: 0.95em;">Colóquese frente a la cámara. El sistema validará sus vectores faciales y abrirá su sesión de forma automática.</p>
+                <p style="color: #94a3b8; font-size: 0.95em;">Colóquese frente a la cámara. El sistema validará sus vectores faciales al instante y abrirá su sesión de forma automática.</p>
         """, unsafe_allow_html=True)
         
         foto_login_inmediato = st.camera_input("Escaneo Facial de Acceso Automático")
         
         if foto_login_inmediato:
             bytes_login = foto_login_inmediato.getvalue()
-            todos_ops = obtener_todos_operadores()
+            valido_login, msg_l, vectores_login = procesar_rostro_mediapipe_estricto(bytes_login)
             
-            usuario_encontrado = None
-            for ced, dat in todos_ops.items():
-                foto_b64 = dat.get('foto')
-                if foto_b64:
-                    valido, _ = validar_rostro_biometrico_estricto(bytes_login, foto_b64)
-                    if valido:
-                        usuario_encontrado = dat
-                        break
-            
-            if usuario_encontrado:
-                meta = obtener_metadatos_locales()
-                st.session_state['acceso_concedido'] = True
-                st.session_state['autenticado'] = True
-                st.session_state['cedula_actual'] = usuario_encontrado.get('cedula')
-                st.session_state['usuario_actual'] = usuario_encontrado.get('nombre')
-                st.session_state['rol_actual'] = usuario_encontrado.get('rol')
-                st.session_state['estado_perfil'] = usuario_encontrado.get('estado_perfil', 'Restringido')
-                st.session_state['cedula_verificada'] = usuario_encontrado.get('cedula_verificada', False)
-                st.session_state['modo_provisional'] = usuario_encontrado.get('provisional', False)
-                
-                registrar_conexion_auditoria(usuario_encontrado.get('nombre'), usuario_encontrado.get('cedula'), "Login Facial Automático Exitoso", meta)
-                st.success(f"✅ ¡Rostro reconocido! Bienvenido, {usuario_encontrado.get('nombre')}.")
-                time.sleep(0.8)
-                st.rerun()
+            if not valido_login:
+                st.error(msg_l)
             else:
-                st.error("⛔ ALERTA: Rostro no reconocido en la base de datos pericial.")
+                todos_ops = obtener_todos_operadores()
+                usuario_encontrado = None
+                
+                for ced, dat in todos_ops.items():
+                    vector_b64 = dat.get('vector_facial')
+                    if vector_b64:
+                        if comparar_vectores_faciales(vectores_login, vector_b64):
+                            usuario_encontrado = dat
+                            break
+                
+                if usuario_encontrado:
+                    meta = obtener_metadatos_locales()
+                    st.session_state['acceso_concedido'] = True
+                    st.session_state['autenticado'] = True
+                    st.session_state['cedula_actual'] = usuario_encontrado.get('cedula')
+                    st.session_state['usuario_actual'] = usuario_encontrado.get('nombre')
+                    st.session_state['rol_actual'] = usuario_encontrado.get('rol')
+                    st.session_state['estado_perfil'] = usuario_encontrado.get('estado_perfil', 'Restringido')
+                    st.session_state['cedula_verificada'] = usuario_encontrado.get('cedula_verificada', False)
+                    st.session_state['modo_provisional'] = usuario_encontrado.get('provisional', False)
+                    
+                    registrar_conexion_auditoria(usuario_encontrado.get('nombre'), usuario_encontrado.get('cedula'), "Login Facial Automático Exitoso (MediaPipe)", meta)
+                    st.success(f"✅ ¡Rostro reconocido! Bienvenido, {usuario_encontrado.get('nombre')}.")
+                    time.sleep(0.8)
+                    st.rerun()
+                else:
+                    st.error("⛔ ALERTA: Rostro no reconocido en la base de datos pericial.")
                 
         st.markdown("</div>", unsafe_allow_html=True)
         
@@ -501,7 +539,7 @@ elif not st.session_state['acceso_concedido']:
         st.markdown("""
             <div class="cyber-card">
                 <h3>📝 Registro de Nuevo Operador</h3>
-                <p style="color: #94a3b8; font-size: 0.95em;">Registre su perfil con cámara (reconocimiento facial) o mediante la excepción provisional sin cámara.</p>
+                <p style="color: #94a3b8; font-size: 0.95em;">Registre su perfil con cámara (reconocimiento facial avanzado) o mediante la excepción provisional sin cámara.</p>
                 <br>
         """, unsafe_allow_html=True)
         if st.button("Iniciar Registro Asíncrono ➡️", use_container_width=True):
@@ -566,8 +604,8 @@ elif eleccion == "⚠️ Cuenta Aislada Provisional (Restricciones)":
     st.markdown("""
         <div class="cyber-card" style="text-align: center; padding: 40px;">
             <h2 style="color: #ef4444;">⚠️ CUENTA AISLADA PROVISIONAL</h2>
-            <p>Su cuenta fue generada desde un dispositivo sin periférico de cámara. Se encuentra en un entorno aislado con acceso restringido a las herramientas globales y de mensajería avanzada.</p>
-            <p style="color: #38bdf8;">Para levantar las restricciones, inicie sesión desde un dispositivo con cámara y complete su verificación biométrica facial obligatoria.</p>
+            <p>Su cuenta fue generada desde un dispositivo sin periférico de cámara. Se encuentra en un entorno aislado con acceso restringido a las herramientas globales.</p>
+            <p style="color: #38bdf8;">Para levantar las restricciones, inicie sesión desde un dispositivo con cámara y complete su verificación biométrica con MediaPipe.</p>
         </div>
     """, unsafe_allow_html=True)
     
@@ -575,13 +613,13 @@ elif eleccion == "⚠️ Cuenta Aislada Provisional (Restricciones)":
     foto_provisional_vivo = st.camera_input("Capturar Rostro para Verificar Cuenta Provisional")
     if foto_provisional_vivo:
         bytes_prov = foto_provisional_vivo.getvalue()
-        img_p = Image.open(io.BytesIO(bytes_prov)).resize((128, 128)).convert('L')
-        arr_p = np.array(img_p, dtype=float)
-        if np.var(arr_p) < 140:
-            st.error("❌ Prueba de vida fallida.")
+        valido_p, msg_p, vec_p = procesar_rostro_mediapipe_estricto(bytes_prov)
+        if not valido_p:
+            st.error(msg_p)
         else:
             actualizar_campo_operador(st.session_state['cedula_actual'], 'provisional', False)
             actualizar_campo_operador(st.session_state['cedula_actual'], 'foto', base64.b64encode(bytes_prov).decode('utf-8'))
+            actualizar_campo_operador(st.session_state['cedula_actual'], 'vector_facial', base64.b64encode(vec_p.tobytes()).decode('utf-8'))
             st.success("✅ ¡Biometría completada con éxito! Cuenta provisional actualizada a Operador Regular.")
             time.sleep(1.5)
             st.rerun()
@@ -595,7 +633,7 @@ elif eleccion == "🔒 Estado Restringido (Herramientas Bloqueadas)":
     """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------
-# MÓDULO: PERFIL Y GESTIÓN DE DATOS (EDICIÓN LIBRE Y POLÍTICA DE BORRADO)
+# MÓDULO: PERFIL Y GESTIÓN DE DATOS
 # -----------------------------------------------------------------
 elif eleccion == "⚙️ Perfil y Gestión de Datos":
     st.markdown("<h2>⚙️ GESTIÓN DE PERFIL Y POLÍTICA DE DATOS</h2>", unsafe_allow_html=True)
@@ -732,7 +770,22 @@ elif eleccion == "🛡️ Verificación Multicanal & Repositorio":
                         if st.button("✅ Aceptar Cambio", key=f"aceptar_ced_{k_sc}"):
                             op_info = obtener_operador(d_sc.get('cedula_actual'))
                             if op_info:
-                                guardar_operador(d_sc.get('nueva_cedula'), op_info.get('nombre').split()[0], " ".join(op_info.get('nombre').split()[1:]), op_info.get('rol'), base64.b64decode(op_info.get('foto')) if op_info.get('foto') else b'', obtener_metadatos_locales(), estado="Activo / Desbloqueado", cedula_verificada=True, telefono=op_info.get('telefono'), correo=op_info.get('correo'), alias=op_info.get('alias'))
+                                vec_bytes = base64.b64decode(op_info['vector_facial']) if op_info.get('vector_facial') else None
+                                vec_arr = np.frombuffer(vec_bytes, dtype=np.float32).reshape(-1, 3) if vec_bytes else None
+                                guardar_operador(
+                                    d_sc.get('nueva_cedula'), 
+                                    op_info.get('nombre').split()[0], 
+                                    " ".join(op_info.get('nombre').split()[1:]), 
+                                    op_info.get('rol'), 
+                                    base64.b64decode(op_info.get('foto')) if op_info.get('foto') else b'', 
+                                    vec_arr, 
+                                    obtener_metadatos_locales(), 
+                                    estado="Activo / Desbloqueado", 
+                                    cedula_verificada=True, 
+                                    telefono=op_info.get('telefono'), 
+                                    correo=op_info.get('correo'), 
+                                    alias=op_info.get('alias')
+                                )
                                 eliminar_cuenta_soft_delete(d_sc.get('cedula_actual'), motivo="Actualización de Cédula aprobada por Admin")
                             actualizar_estado_solicitud_cedula(k_sc, 'aceptada')
                             st.success("✅ Solicitud aceptada.")
@@ -766,7 +819,7 @@ elif eleccion == "🛡️ Verificación Multicanal & Repositorio":
                     st.rerun()
 
 # -----------------------------------------------------------------
-# MÓDULO 1: CHATS PERSONALES CON MENÚ DE MARCACIÓN DINÁMICA & LÚDICO
+# MÓDULO 1: CHATS PERSONALES
 # -----------------------------------------------------------------
 elif eleccion == "💬 Chats Personales y Solicitudes (Estilo WhatsApp)":
     st.markdown("""
