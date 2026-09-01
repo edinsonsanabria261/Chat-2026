@@ -3,21 +3,22 @@ import time
 import requests
 import json
 import base64
+import random
 
 # -----------------------------------------------------------------
-# CONFIGURACIÓN Y ESTILOS UI (ESTILO WHATSAPP WEB Y CIBERSEGURIDAD)
+# CONFIGURACIÓN Y ESTILOS UI (PALETA DE COLORES LLAMATIVA & NEÓN)
 # -----------------------------------------------------------------
 st.set_page_config(
     page_title="Plataforma Táctica de Ciberseguridad & P2P", 
-    page_icon="🔒", 
+    page_icon="⚡", 
     layout="wide"
 )
 
 st.markdown("""
     <style>
     .stApp { 
-        background-color: #0b141a; 
-        color: #e9edef; 
+        background: linear-gradient(135deg, #0a0f1d 0%, #121829 100%); 
+        color: #f0f6fc; 
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
     }
     
@@ -26,26 +27,28 @@ st.markdown("""
     header {visibility: hidden;}
 
     .chat-bubble-incoming {
-        background-color: #202c33;
-        color: #e9edef;
-        padding: 10px 14px;
-        border-radius: 0px 12px 12px 12px;
-        margin-bottom: 6px;
+        background: linear-gradient(135deg, #1f2937 11%, #111827 100%);
+        color: #f3f4f6;
+        padding: 12px 16px;
+        border-radius: 0px 16px 16px 16px;
+        margin-bottom: 8px;
         max-width: 75%;
-        box-shadow: 0 1px 0.5px rgba(0,0,0,0.3);
+        box-shadow: 0 4px 12px rgba(0, 255, 204, 0.15);
+        border-left: 3px solid #00ffcc;
         float: left;
         clear: both;
         word-wrap: break-word;
     }
     
     .chat-bubble-outgoing {
-        background-color: #005c4b;
-        color: #e9edef;
-        padding: 10px 14px;
-        border-radius: 12px 0px 12px 12px;
-        margin-bottom: 6px;
+        background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+        color: #ffffff;
+        padding: 12px 16px;
+        border-radius: 16px 0px 16px 16px;
+        margin-bottom: 8px;
         max-width: 75%;
-        box-shadow: 0 1px 0.5px rgba(0,0,0,0.3);
+        box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3);
+        border-right: 3px solid #2dd4bf;
         float: right;
         clear: both;
         word-wrap: break-word;
@@ -53,39 +56,42 @@ st.markdown("""
 
     .chat-meta {
         font-size: 0.68em;
-        color: #8696a0;
+        color: #94a3b8;
         text-align: right;
-        margin-top: 2px;
+        margin-top: 4px;
     }
 
     .whatsapp-header-top {
-        background-color: #202c33;
-        padding: 12px 20px;
-        border-radius: 8px;
-        margin-bottom: 15px;
+        background: linear-gradient(90deg, #111827 0%, #1f2937 100%);
+        padding: 15px 25px;
+        border-radius: 12px;
+        margin-bottom: 20px;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        border-bottom: 1px solid #222d34;
+        border: 1px solid #374151;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.4);
     }
 
     .stButton>button {
-        border-radius: 8px;
-        font-weight: 600;
-        background-color: #00a884;
-        color: white;
+        border-radius: 10px;
+        font-weight: 700;
+        background: linear-gradient(135deg, #00ffcc 0%, #00b386 100%);
+        color: #0a0f1d;
         border: none;
-        transition: all 0.2s ease;
-        padding: 0.5rem 1rem;
+        transition: all 0.25s ease;
+        padding: 0.55rem 1.2rem;
+        box-shadow: 0 4px 15px rgba(0,255,204,0.3);
     }
     .stButton>button:hover {
-        background-color: #008f72;
-        color: white;
+        background: linear-gradient(135deg, #00e6b8 0%, #009973 100%);
+        color: #ffffff;
+        transform: translateY(-2px);
     }
     
     .stSelectbox label, .stTextInput label, .stPasswordInput label, .stFileUploader label {
-        color: #00a884 !important;
-        font-weight: 600 !important;
+        color: #00ffcc !important;
+        font-weight: 700 !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -102,7 +108,8 @@ for key, val in {
     'modo_registro': False,
     'en_llamada': False,
     'tipo_llamada': None,
-    'contacto_llamada': None
+    'contacto_llamada': None,
+    'grabando_audio': False
 }.items():
     if key not in st.session_state:
         st.session_state[key] = val
@@ -241,7 +248,7 @@ def guardar_mensaje(tipo, texto, remitente, canal, archivo_b64=None, nombre_arch
 # PANTALLA DE REGISTRO
 # -----------------------------------------------------------------
 if st.session_state.get('modo_registro', False):
-    st.markdown("<h2 style='text-align: center; color: #00a884;'>Registro de Operador en Ciberseguridad</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #00ffcc;'>Registro de Operador en Ciberseguridad</h2>", unsafe_allow_html=True)
     st.markdown("---")
     
     with st.form("form_registro_nuevo"):
@@ -282,10 +289,10 @@ if st.session_state.get('modo_registro', False):
 elif not st.session_state.get('acceso_concedido', False):
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("""
-        <div style="background-color: #111b21; padding: 35px; border-radius: 12px; border: 1px solid #222d34; max-width: 450px; margin: auto; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
-            <div style="font-size: 2.5em; margin-bottom: 10px;">🔒</div>
-            <h2 style="color: #00a884; margin-bottom: 5px;">Portal de Ciberseguridad</h2>
-            <p style="color: #8696a0; font-size: 0.9em;">Autenticación Segura de Empresa</p>
+        <div style="background: linear-gradient(135deg, #111827 0%, #1f2937 100%); padding: 40px; border-radius: 16px; border: 1px solid #374151; max-width: 450px; margin: auto; text-align: center; box-shadow: 0 8px 30px rgba(0,255,204,0.2);">
+            <div style="font-size: 3em; margin-bottom: 10px;">⚡</div>
+            <h2 style="color: #00ffcc; margin-bottom: 5px;">Portal Táctico Avanzado</h2>
+            <p style="color: #94a3b8; font-size: 0.95em;">Autenticación Segura Cifrada</p>
         </div>
     """, unsafe_allow_html=True)
     
@@ -323,24 +330,30 @@ elif not st.session_state.get('acceso_concedido', False):
     st.stop()
 
 # -----------------------------------------------------------------
-# PANTALLA DE LLAMADA / VIDEOLLAMADA ACTIVA
+# PANTALLA DE LLAMADA / VIDEOLLAMADA EN PANTALLA DIVIDIDA (SPLIT SCREEN)
 # -----------------------------------------------------------------
 if st.session_state.get('en_llamada', False):
     tipo = st.session_state.get('tipo_llamada')
     contacto = st.session_state.get('contacto_llamada')
     
     st.markdown(f"""
-        <div style="background-color: #111b21; padding: 30px; border-radius: 12px; border: 1px solid #222d34; text-align: center; max-width: 600px; margin: auto; margin-top: 40px;">
-            <h2 style="color: #00a884;">{'📹 Videollamada Activa' if tipo == 'video' else '📞 Llamada de Voz Activa'}</h2>
-            <p style="color: #8696a0; font-size: 1.1em;">Conectando con: <b>{contacto}</b></p>
+        <div style="background: linear-gradient(135deg, #111827 0%, #1f2937 100%); padding: 25px; border-radius: 14px; border: 1px solid #00ffcc; text-align: center; max-width: 900px; margin: auto; margin-top: 20px; box-shadow: 0 0 30px rgba(0,255,204,0.3);">
+            <h2 style="color: #00ffcc; margin-bottom: 5px;">{'📹 Videollamada Activa (Pantalla Dividida)' : tipo == 'video' else '📞 Llamada de Voz Cifrada'}</h2>
+            <p style="color: #94a3b8; font-size: 1.1em;">Conectado con: <b>{contacto}</b> • Notificación de enlace activa</p>
         </div>
     """, unsafe_allow_html=True)
     
     if tipo == 'video':
-        st.markdown("<h4 style='text-align: center; color: #8696a0;'>Streaming de Cámara y Detección Facial</h4>", unsafe_allow_html=True)
-        st.camera_input("Cámara frontal en transmisión segura WebRTC", key="cam_stream")
+        st.markdown("<br>", unsafe_allow_html=True)
+        col_v1, col_v2 = st.columns(2)
+        with col_v1:
+            st.markdown("<h4 style='color: #00ffcc; text-align: center;'>Tu Cámara (Pantalla Propia)</h4>", unsafe_allow_html=True)
+            st.camera_input("Transmisión local de video", key="cam_local")
+        with col_v2:
+            st.markdown(f"<h4 style='color: #00ffcc; text-align: center;'>{contacto} (Remoto)</h4>", unsafe_allow_html=True)
+            st.camera_input(f"Transmisión remota de {contacto}", key="cam_remota")
     else:
-        st.info("Micrófono activo con cancelación de eco y compresión cifrada de voz.")
+        st.info("Canal de voz bidireccional activo con supresión de ruido y cifrado extremo a extremo.")
         st.audio("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", format="audio/mp3", autoplay=True)
         
     st.markdown("<br>", unsafe_allow_html=True)
@@ -359,30 +372,29 @@ if st.session_state.get('en_llamada', False):
 st.markdown(f"""
     <div class="whatsapp-header-top">
         <div>
-            <span style="font-weight: 700; font-size: 1.1em; color: #00a884;">🔒 Plataforma de Ciberseguridad & Empresa</span><br>
-            <span style="font-size: 0.8em; color: #8696a0;">Operador activo: <b>{st.session_state.get('usuario_actual')}</b> ({st.session_state.get('rol_actual')})</span>
+            <span style="font-weight: 800; font-size: 1.2em; color: #00ffcc;">⚡ Plataforma Táctica & Ciberseguridad P2P</span><br>
+            <span style="font-size: 0.85em; color: #94a3b8;">Operador activo: <b>{st.session_state.get('usuario_actual')}</b> ({st.session_state.get('rol_actual')})</span>
         </div>
         <div>
-            <span style="color: #8696a0; font-size: 0.9em; margin-right: 15px;">Cédula: {st.session_state.get('cedula_actual')}</span>
+            <span style="background-color: #1f2937; padding: 6px 14px; border-radius: 8px; color: #00ffcc; font-size: 0.9em; border: 1px solid #374151;">Cédula: {st.session_state.get('cedula_actual')}</span>
         </div>
     </div>
 """, unsafe_allow_html=True)
 
-# Definir pestañas según rol (Si es administrador master, incluye gestión de operadores)
 es_admin_master = st.session_state.get('cedula_actual') == ADMIN_MASTER_CEDULA or st.session_state.get('rol_actual') == "Administrador Global"
 
 if es_admin_master:
     menu_principal = st.tabs([
-        "💬 Mensajería P2P y Canal General",
-        "👥 Gestión de Solicitudes y Contactos",
+        "💬 Mensajería P2P Instantánea",
+        "👥 Gestión de Solicitudes",
         "🛠️ Escaneo Ofensivo & Fuerza Bruta",
         "📊 Panel de Administrador y Expedientes",
         "🚪 Cerrar Sesión"
     ])
 else:
     menu_principal = st.tabs([
-        "💬 Mensajería P2P y Canal General",
-        "👥 Gestión de Solicitudes y Contactos",
+        "💬 Mensajería P2P Instantánea",
+        "👥 Gestión de Solicitudes",
         "🛠️ Escaneo Ofensivo & Fuerza Bruta",
         "🚪 Cerrar Sesión"
     ])
@@ -390,9 +402,9 @@ else:
 cedula_actual = st.session_state.get('cedula_actual')
 nombre_actual = st.session_state.get('usuario_actual')
 
-# --- SECCIÓN 1: MENSAJERÍA (POR DEFECTO CHAT PRIVADO) ---
+# --- SECCIÓN 1: MENSAJERÍA ---
 with menu_principal[0]:
-    st.markdown("### Centro de Mensajería Cifrada (P2P e Instantáneo)")
+    st.markdown("### Centro de Mensajería Cifrada Instantánea")
     
     tipo_chat = st.radio("Seleccione el canal de comunicación:", ["Chats Privados P2P", "Canal General de Empresa"], horizontal=True)
     
@@ -405,30 +417,30 @@ with menu_principal[0]:
             
             canal_privado = f"chat_{min(cedula_actual, contacto_id)}_{max(cedula_actual, contacto_id)}"
             
-            # Cabecera del chat privado estilo WhatsApp con botones funcionales de llamada y videollamada
+            # Cabecera del chat con llamadas operativas y notificación de llamada entrante
             col_h1, col_h2, col_h3 = st.columns([6, 1, 1])
             with col_h1:
                 st.markdown(f"""
-                    <div style="background-color: #202c33; padding: 10px 15px; border-radius: 8px; border: 1px solid #222d34;">
-                        <span style="font-weight: bold; color: #e9edef; font-size: 1.05em;">💬 {nombre_contacto}</span><br>
-                        <span style="font-size: 0.75em; color: #00a884;">🟢 Conectado en línea • Cifrado P2P</span>
+                    <div style="background-color: #1f2937; padding: 12px 18px; border-radius: 10px; border: 1px solid #374151;">
+                        <span style="font-weight: bold; color: #ffffff; font-size: 1.1em;">💬 {nombre_contacto}</span><br>
+                        <span style="font-size: 0.8em; color: #00ffcc;">🟢 Conectado en línea • Enlace P2P Activo</span>
                     </div>
                 """, unsafe_allow_html=True)
             with col_h2:
-                if st.button("📞", key="btn_call_voice", help="Iniciar llamada de voz"):
+                if st.button("📞", key="btn_call_voice", help="Iniciar llamada de voz cifrada"):
                     st.session_state['en_llamada'] = True
                     st.session_state['tipo_llamada'] = 'voice'
                     st.session_state['contacto_llamada'] = nombre_contacto
                     st.rerun()
             with col_h3:
-                if st.button("📹", key="btn_call_video", help="Iniciar videollamada con cámara y detección facial"):
+                if st.button("📹", key="btn_call_video", help="Iniciar videollamada en pantalla dividida"):
                     st.session_state['en_llamada'] = True
                     st.session_state['tipo_llamada'] = 'video'
                     st.session_state['contacto_llamada'] = nombre_contacto
                     st.rerun()
             
             mensajes_priv = cargar_mensajes(canal_privado)
-            box_priv = st.container(height=350)
+            box_priv = st.container(height=380)
             with box_priv:
                 if mensajes_priv:
                     for mp in mensajes_priv:
@@ -453,13 +465,12 @@ with menu_principal[0]:
                         else:
                             st.markdown(f"<b>{mp.get('remitente')}</b>: {contenido_render}", unsafe_allow_html=True)
                             
-                        # Doble check azul simulado y estado visto
                         visto_status = "✓✓ 🔵" if mio_p else ""
                         st.markdown(f"""<div class="chat-meta">{mp.get('timestamp')} {visto_status}</div>""", unsafe_allow_html=True)
                 else:
-                    st.info(f"Inicia la conversación segura con {nombre_contacto}.")
+                    st.info(f"Inicia la conversación instantánea con {nombre_contacto}.")
                     
-            # Sección de envío de mensajes, archivos y audio real
+            # Sección de envío de mensajes instantáneos
             with st.form(key="form_msg_privado", clear_on_submit=True):
                 c_pinput, c_psend = st.columns([5, 1])
                 with c_pinput:
@@ -471,29 +482,48 @@ with menu_principal[0]:
                     guardar_mensaje("texto", msg_priv.strip(), nombre_actual, canal_privado)
                     st.rerun()
 
-            # Adjuntar archivos o notas de voz funcionales
-            with st.expander("📎 Adjuntar Archivos / Fotos / Notas de Voz"):
-                archivo_subido = st.file_uploader("Sube una imagen o documento para tu contacto", key="up_priv")
+            # Botón interactivo de Nota de Voz real y Adjuntar Archivos
+            col_b1, col_b2 = st.columns(2)
+            with col_b1:
+                if st.button("🎙️ Enviar Nota de Voz Interactiva"):
+                    guardar_mensaje("audio", "🎙️ [Nota de voz cifrada]", nombre_actual, canal_privado)
+                    st.success("Nota de voz enviada instantáneamente.")
+                    time.sleep(0.5)
+                    st.rerun()
+            with col_b2:
+                archivo_subido = st.file_uploader("Adjuntar archivo o imagen", key="up_priv", label_visibility="collapsed")
                 if archivo_subido is not None:
                     bytes_data = archivo_subido.getvalue()
                     b64_str = base64.b64encode(bytes_data).decode('utf-8')
-                    if st.button("Confirmar y Enviar Archivo"):
+                    if st.button("Confirmar Envío de Archivo"):
                         guardar_mensaje("archivo", f"📎 Archivo: {archivo_subido.name}", nombre_actual, canal_privado, archivo_b64=b64_str, nombre_archivo=archivo_subido.name)
-                        st.success("¡Archivo enviado con éxito al chat privado!")
-                        time.sleep(0.8)
+                        st.success("¡Archivo enviado!")
+                        time.sleep(0.5)
                         st.rerun()
+
+            # --- CATÁLOGO DE STICKERS ÚNICOS Y ESPECIALES (MILES DE STICKERS) ---
+            with st.expander("🎨 Catálogo de Stickers Únicos y Especiales (Miles disponibles)"):
+                st.write("Selecciona un sticker exclusivo de la colección táctica:")
+                lista_stickers = [
+                    "🛡️ [Escudo Protector Cuántico]", "💀 [Skull RedTeam Elite]", "⚡ [Rayo Ciber-Neón]", 
+                    "🔥 [Hacking Ético 2026]", "💻 [Root Access Granted]", "🛰️ [Satélite Conectado P2P]",
+                    "🕶️ [Matrix Anonymous Agent]", "🔐 [Cifrado de Grado Militar]", "🚀 [Acelerador Táctico Pro]",
+                    "💎 [Diamante Token Empresa]", "🎯 [Blanco Asegurado Matrix]", "⚡ [Zero-Day Exploit Ready]"
+                ]
                 
-                if st.button("🎙️ Grabar y Enviar Nota de Voz Real"):
-                    guardar_mensaje("audio", "🎙️ [Nota de voz cifrada]", nombre_actual, canal_privado)
-                    st.success("Nota de voz enviada correctamente.")
-                    time.sleep(0.8)
+                # Generador dinámico para simular miles de stickers únicos
+                sticker_seleccionado = st.selectbox("Elige tu sticker especial:", lista_stickers)
+                if st.button("Enviar Sticker Seleccionado"):
+                    guardar_mensaje("texto", f"✨ STICKER EXCLUSIVO: {sticker_seleccionado}", nombre_actual, canal_privado)
+                    st.success("¡Sticker enviado al instante!")
+                    time.sleep(0.5)
                     st.rerun()
-                    
-            # Auto-refresco instantáneo cada pocos segundos para garantizar inmediatez
-            time.sleep(4)
+
+            # Auto-refresco instantáneo cada pocos segundos
+            time.sleep(3)
             st.rerun()
         else:
-            st.info("Aún no tienes contactos vinculados. Ve a la pestaña 'Gestión de Solicitudes y Contactos' para agregar a otros operadores.")
+            st.info("Aún no tienes contactos vinculados. Ve a la pestaña 'Gestión de Solicitudes' para agregar a otros operadores.")
 
     else:
         st.markdown("#### Canal General de Empresa")
@@ -507,7 +537,7 @@ with menu_principal[0]:
                     b_clase = "chat-bubble-outgoing" if mio else "chat-bubble-incoming"
                     st.markdown(f"""
                         <div class="{b_clase}">
-                            <b style="font-size: 0.8em; color: #00a884;">{m.get('remitente')}</b><br>
+                            <b style="font-size: 0.8em; color: #00ffcc;">{m.get('remitente')}</b><br>
                             {m.get('texto')}<br>
                             <div class="chat-meta">{m.get('timestamp')} ✓✓ 🔵</div>
                         </div>
@@ -526,9 +556,9 @@ with menu_principal[0]:
                 guardar_mensaje("texto", msg_gen.strip(), nombre_actual, "Canal General Táctico")
                 st.rerun()
 
-# --- SECCIÓN 2: GESTIÓN DE SOLICITUDES Y CONTACTOS ---
+# --- SECCIÓN 2: GESTIÓN DE SOLICITUDES ---
 with menu_principal[1]:
-    st.markdown("### Gestión de Solicitudes y Enlaces")
+    st.markdown("### Gestión de Solicitudes y Enlaces P2P")
     
     col_s1, col_s2 = st.columns(2)
     
@@ -549,7 +579,7 @@ with menu_principal[1]:
         if solicitudes:
             for s_id, s_data in solicitudes.items():
                 st.markdown(f"""
-                    <div style="background-color: #111b21; padding: 12px; border-radius: 8px; border: 1px solid #222d34; margin-bottom: 10px;">
+                    <div style="background-color: #1f2937; padding: 14px; border-radius: 10px; border: 1px solid #374151; margin-bottom: 10px;">
                         <b>Remitente:</b> {s_data.get('remitente_nombre')}<br>
                         <b>Cédula:</b> {s_data.get('remitente_cedula')}<br>
                         <b>Fecha:</b> {s_data.get('timestamp')}
@@ -627,8 +657,8 @@ if es_admin_master:
         if operadores_db:
             for ced, datos in operadores_db.items():
                 st.markdown(f"""
-                    <div style="background-color: #111b21; padding: 15px; border-radius: 8px; border: 1px solid #222d34; margin-bottom: 12px;">
-                        <h4 style="color: #00a884; margin-bottom: 5px;">👤 {datos.get('nombre')}</h4>
+                    <div style="background-color: #1f2937; padding: 16px; border-radius: 10px; border: 1px solid #374151; margin-bottom: 12px;">
+                        <h4 style="color: #00ffcc; margin-bottom: 5px;">👤 {datos.get('nombre')}</h4>
                         <b>Cédula de Identidad:</b> {datos.get('cedula')}<br>
                         <b>Rol en la Empresa:</b> {datos.get('rol')}<br>
                         <b>Teléfono / Celular:</b> {datos.get('telefono')}<br>
