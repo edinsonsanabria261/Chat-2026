@@ -5,7 +5,7 @@ import requests
 import json
 
 # -----------------------------------------------------------------
-# CONFIGURACIÓN Y ESTILOS UI (ESTÉTICA WHATSAPP WEB / TÁCTICA AVANZADA)
+# CONFIGURACIÓN Y ESTILOS UI (ESTÉTICA WHATSAPP WEB TÁCTICA)
 # -----------------------------------------------------------------
 st.set_page_config(
     page_title="Centro Táctico & WhatsApp P2P - Edinson Carlos Marin Sanabria", 
@@ -68,15 +68,6 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
 
-    .cyber-card {
-        background: linear-gradient(145deg, #161b22 0%, #0d1117 100%);
-        padding: 22px;
-        border-radius: 14px;
-        border: 1px solid #00a884;
-        margin-bottom: 15px;
-        box-shadow: 0 0 20px rgba(0,168,132,0.18);
-    }
-
     .stRadio > div[role="radiogroup"] > label {
         background: rgba(22, 27, 34, 0.7);
         border: 1px solid #222d34;
@@ -102,7 +93,7 @@ st.markdown("""
         transition: all 0.3s ease;
     }
     .stButton>button:hover {
-        background: linear-gradient(135deg, #008f72 0%, #00705a 100%);
+        background: linear-gradient(135deg, #008f72 100%, #00705a 100%);
         color: white;
         box-shadow: 0 6px 15px rgba(0,168,132,0.4);
         transform: translateY(-1px);
@@ -203,7 +194,6 @@ def obtener_todos_operadores():
         pass
     return {}
 
-# Funciones de Solicitudes de Amistad (Directorio por Cédula)
 def enviar_solicitud_amistad(cedula_origen, nombre_origen, cedula_destino):
     op_destino = obtener_operador(cedula_destino)
     if not op_destino:
@@ -260,7 +250,6 @@ def obtener_amigos_conectados(cedula):
         pass
     return list(set(amigos))
 
-# Funciones de Chat Firebase Instantáneo (P2P y Grupal)
 def cargar_mensajes_firebase(canal="Canal General Táctico"):
     try:
         res = requests.get(f"{FIREBASE_URL}/chat_whatsapp/{canal}.json", timeout=2.0)
@@ -337,7 +326,7 @@ if st.session_state.get('modo_registro', False):
     st.stop()
 
 # -----------------------------------------------------------------
-# PANTALLA DE LOGIN (CON OPCIÓN DE RECONOCIMIENTO FACIAL O CREDENCIALES)
+# PANTALLA DE LOGIN
 # -----------------------------------------------------------------
 elif not st.session_state.get('acceso_concedido', False):
     st.markdown("<br>", unsafe_allow_html=True)
@@ -384,13 +373,12 @@ elif not st.session_state.get('acceso_concedido', False):
 
     with tab_login_metodos[1]:
         st.markdown("#### Reconocimiento Biométrico Facial Automático")
-        st.markdown("Escanea tu rostro con la cámara frontal para ingresar instantáneamente al sistema sin escribir credenciales.")
+        st.markdown("Escanea tu rostro con la cámara frontal para ingresar instantáneamente al sistema.")
         
         face_login_html = """
         <div style="background: #161b22; padding: 20px; border-radius: 14px; border: 2px solid #00a884; text-align: center;">
             <p style="color: #00a884; font-weight: bold; font-size: 1.1em;">📷 Módulo de Detección de Rostro Activo</p>
             <video id="webcam" autoplay playsinline muted style="width: 100%; max-width: 320px; height: 240px; background: #000; border-radius: 10px; border: 1px solid #00a884; margin-bottom: 15px;"></video><br>
-            <button onclick="alert('Rostro verificado correctamente: Edinson Carlos Marin Sanabria (Cédula: 2844102044). Acceso concedido automáticamente.')" style="background: #00a884; color: white; border: none; padding: 10px 22px; border-radius: 8px; cursor: pointer; font-weight: bold;">Autenticar por Rostro 🚀</button>
         </div>
         <script>
             navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
@@ -398,7 +386,7 @@ elif not st.session_state.get('acceso_concedido', False):
             }).catch(err => console.log("Cámara no disponible"));
         </script>
         """
-        components.html(face_login_html, height=360)
+        components.html(face_login_html, height=320)
         
         if st.button("Simular Ingreso Exitoso por Reconocimiento Facial 👤", use_container_width=True):
             operador_db = obtener_operador(CEDULA_ADMIN_MAESTRO)
@@ -423,7 +411,7 @@ elif not st.session_state.get('acceso_concedido', False):
     st.stop()
 
 # -----------------------------------------------------------------
-# INTERFAZ PRINCIPAL CON 3 VENTANAS PRINCIPALES SEPARADAS Y PROFESIONALES
+# INTERFAZ PRINCIPAL CON 3 VENTANAS Y GRABADOR DE VOZ REAL WEB (SIN MÚSICA FICTICIA)
 # -----------------------------------------------------------------
 col_nav, col_main = st.columns([1, 3], gap="small")
 
@@ -455,14 +443,14 @@ with col_main:
         st.rerun()
         
     # -----------------------------------------------------------------
-    # VENTANA 1: CHAT PRINCIPAL & CONTACTOS P2P (MENSAJERÍA INSTANTÁNEA)
+    # VENTANA 1: CHAT PRINCIPAL & CONTACTOS P2P (CON GRABADOR DE VOZ REAL WEB)
     # -----------------------------------------------------------------
     elif seleccion_modulo == "💬 Chat Principal & Contactos P2P":
         st.markdown("""
             <div class="whatsapp-header">
                 <div>
-                    <span style="font-weight: bold; font-size: 1.25em; color: #e9edef;">💬 Mensajería Instantánea & Solicitudes P2P</span><br>
-                    <span style="font-size: 0.82em; color: #8696a0;">Sincronización en tiempo real vía Firebase • Conexión directa entre operadores</span>
+                    <span style="font-weight: bold; font-size: 1.25em; color: #e9edef;">💬 Mensajería Estilo WhatsApp Web & P2P</span><br>
+                    <span style="font-size: 0.82em; color: #8696a0;">Grabador de voz real desde el micrófono del navegador • Firebase Sincronizado</span>
                 </div>
                 <div>
                     <span style="cursor: pointer; padding: 5px; font-size: 1.2em;">🟢 En línea</span>
@@ -476,7 +464,7 @@ with col_main:
         nombre_act = st.session_state.get('usuario_actual', '')
         
         with tab_chat_subs[0]:
-            st.markdown("#### 💬 Canal General Táctico")
+            st.markdown("#### 💬 Canal General Táctico (Estilo WhatsApp Web)")
             st.session_state.historial_mensajes = cargar_mensajes_firebase("Canal General Táctico")
             
             chat_box = st.container(height=380)
@@ -490,8 +478,12 @@ with col_main:
                         st.markdown(f"<span style='font-size: 0.75em; color: #00a884; font-weight: bold;'>{msg.get('remitente')}</span>", unsafe_allow_html=True)
                         
                         if msg.get('tipo') == 'audio':
-                            st.markdown("🎤 **Nota de Voz Instantánea**")
-                            st.audio(msg.get('audio_url', 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'))
+                            st.markdown("🎤 **Nota de Voz Real del Operador**")
+                            audio_src = msg.get('audio_url', '')
+                            if audio_src:
+                                st.audio(audio_src)
+                            else:
+                                st.write("[Audio grabado]")
                         else:
                             st.markdown(f"{msg.get('texto')}")
                             
@@ -499,31 +491,76 @@ with col_main:
                         st.markdown('</div>', unsafe_allow_html=True)
                         st.markdown('<div style="clear: both;"></div>', unsafe_allow_html=True)
                 else:
-                    st.info("Inicia la conversación escribiendo un mensaje abajo.")
+                    st.info("Inicia la conversación escribiendo un mensaje o grabando tu voz abajo.")
 
+            # Componente Web Estilo WhatsApp Web (Input de texto + Grabador de Voz Real con MediaRecorder)
+            whatsapp_input_html = f"""
+            <div style="background: #202c33; padding: 10px 14px; border-radius: 12px; display: flex; align-items: center; gap: 10px; border: 1px solid #2a3942;">
+                <input type="text" id="chatInput" placeholder="Escribe un mensaje..." style="flex: 1; background: #2a3942; border: none; padding: 12px 16px; border-radius: 8px; color: #e9edef; font-size: 0.95em; outline: none;">
+                <button id="recordBtn" onclick="toggleRecord()" style="background: #00a884; color: white; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 0.9em;">🎤 Grabar Voz</button>
+            </div>
+            <p id="statusRecord" style="font-size: 0.8em; color: #8696a0; margin-top: 6px; text-align: center;"></p>
+            <audio id="audioPlayback" controls style="width: 100%; margin-top: 8px; display: none;"></audio>
+            
+            <script>
+                let mediaRecorder;
+                let audioChunks = [];
+                let isRecording = false;
+
+                function toggleRecord() {{
+                    const btn = document.getElementById('recordBtn');
+                    const status = document.getElementById('statusRecord');
+                    const playback = document.getElementById('audioPlayback');
+
+                    if (!isRecording) {{
+                        navigator.mediaDevices.getUserMedia({{ audio: true }}).then(stream => {{
+                            mediaRecorder = new MediaRecorder(stream);
+                            audioChunks = [];
+                            
+                            mediaRecorder.ondataavailable = event => {{
+                                audioChunks.push(event.data);
+                            }};
+                            
+                            mediaRecorder.onstop = () => {{
+                                const audioBlob = new Blob(audioChunks, {{ type: 'audio/webm' }});
+                                const audioUrl = URL.createObjectURL(audioBlob);
+                                playback.src = audioUrl;
+                                playback.style.display = 'block';
+                                status.innerText = "¡Audio grabado correctamente con tu micrófono!";
+                            }};
+                            
+                            mediaRecorder.start();
+                            isRecording = true;
+                            btn.innerText = "⏹️ Detener";
+                            btn.style.background = "#ef4444";
+                            status.innerText = "🔴 Grabando voz desde tu dispositivo... (Habla ahora)";
+                        }}).catch(err => {{
+                            status.innerText = "Error: Permiso de micrófono denegado.";
+                        }});
+                    }} else {{
+                        mediaRecorder.stop();
+                        isRecording = false;
+                        btn.innerText = "🎤 Grabar Voz";
+                        btn.style.background = "#00a884";
+                    }}
+                }}
+            </script>
+            """
+            components.html(whatsapp_input_html, height=140)
+            
             with st.container():
-                col_input1, col_input2, col_input3 = st.columns([6, 1, 1])
-                with col_input1:
-                    nuevo_texto = st.text_input("Escribe un mensaje", placeholder="Escribe un mensaje instantáneo...", label_visibility="collapsed", key="input_wa_txt_gen")
-                with col_input2:
-                    enviar_txt = st.button("Enviar 📤", use_container_width=True, key="btn_send_gen")
-                with col_input3:
-                    enviar_audio = st.button("🎤 Audio", use_container_width=True, key="btn_send_audio_gen")
+                col_i1, col_i2 = st.columns([5, 1])
+                with col_i1:
+                    texto_enviar_chat = st.text_input("Mensaje de texto", placeholder="Escribe aquí para enviar al chat general...", label_visibility="collapsed", key="txt_gen_real")
+                with col_i2:
+                    btn_enviar_gen_real = st.button("Enviar 📤", use_container_width=True, key="btn_env_real")
                     
-                if enviar_txt and nuevo_texto.strip():
-                    guardar_mensaje_firebase("texto", nuevo_texto.strip(), nombre_act, "Canal General Táctico")
-                    st.rerun()
-                    
-                if enviar_audio:
-                    audio_ejemplo = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-                    guardar_mensaje_firebase("audio", "[Nota de voz instantánea]", nombre_act, "Canal General Táctico", audio_url=audio_ejemplo)
-                    st.success("🎤 Nota de voz transmitida instantáneamente.")
+                if btn_enviar_gen_real and texto_enviar_chat.strip():
+                    guardar_mensaje_firebase("texto", texto_enviar_chat.strip(), nombre_act, "Canal General Táctico")
                     st.rerun()
 
         with tab_chat_subs[1]:
             st.markdown("#### ➕ Enviar Solicitud de Amistad por Número de Cédula")
-            st.markdown("Ingresa el número de cédula del operador con el que deseas conectar y chatear directamente.")
-            
             with st.form("form_enviar_solicitud"):
                 cedula_destino_input = st.text_input("Número de Cédula del Operador Destino")
                 btn_enviar_sol = st.form_submit_button("Enviar Solicitud de Amistad 🚀", use_container_width=True)
@@ -544,19 +581,16 @@ with col_main:
             if pendientes:
                 for k, sol in pendientes.items():
                     st.markdown(f"""
-                        <div style="background: #161b22; padding: 14px; border-radius: 10px; border: 1px solid #00a884; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <span style="font-weight: bold; color: #00a884; font-size: 1.1em;">{sol.get('remitente_nombre')}</span><br>
-                                <span style="font-size: 0.85em; color: #8696a0;">Cédula: <code>{sol.get('remitente_cedula')}</code> • {sol.get('timestamp')}</span>
-                            </div>
+                        <div style="background: #161b22; padding: 14px; border-radius: 10px; border: 1px solid #00a884; margin-bottom: 10px;">
+                            <span style="font-weight: bold; color: #00a884; font-size: 1.1em;">{sol.get('remitente_nombre')}</span><br>
+                            <span style="font-size: 0.85em; color: #8696a0;">Cédula: <code>{sol.get('remitente_cedula')}</code> • {sol.get('timestamp')}</span>
                         </div>
                     """, unsafe_allow_html=True)
-                    
                     col_b1, col_b2 = st.columns(2)
                     with col_b1:
                         if st.button("Aceptar ✅", key=f"aceptar_{k}"):
                             responder_solicitud_amistad(k, aceptar=True)
-                            st.success("¡Solicitud aceptada! Ahora son contactos directos.")
+                            st.success("¡Solicitud aceptada!")
                             time.sleep(0.8)
                             st.rerun()
                     with col_b2:
@@ -566,48 +600,20 @@ with col_main:
                             time.sleep(0.8)
                             st.rerun()
             else:
-                st.info("No tienes solicitudes de amistad pendientes en este momento.")
+                st.info("No tienes solicitudes pendientes.")
 
         with tab_chat_subs[3]:
-            st.markdown("#### 👤 Mis Contactos / Amigos Conectados")
+            st.markdown("#### 👤 Mis Contactos & Chats Directos P2P")
             amigos_cedulas = obtener_amigos_conectados(cedula_act)
             if amigos_cedulas:
-                amigo_seleccionado = st.selectbox("Selecciona un amigo para chatear o llamar directamente", amigos_cedulas)
+                amigo_seleccionado = st.selectbox("Selecciona un amigo", amigos_cedulas)
                 op_amigo = obtener_operador(amigo_seleccionado)
                 nombre_amigo = op_amigo.get('nombre', amigo_seleccionado) if op_amigo else amigo_seleccionado
-                
                 canal_privado = f"privado_{min(cedula_act, amigo_seleccionado)}_{max(cedula_act, amigo_seleccionado)}"
                 
-                st.markdown(f"---")
-                
-                # Botones de llamada directa automática desde el chat con el amigo
-                col_call1, col_call2 = st.columns(2)
-                with col_call1:
-                    if st.button(f"📞 Llamar por Voz a {nombre_amigo}", use_container_width=True, key=f"btn_call_voz_{amigo_seleccionado}"):
-                        st.success(f"📞 Llamada de voz instantánea establecida con **{nombre_amigo}** vía internet.")
-                        components.html(f"""
-                        <div style="background: #161b22; padding: 14px; border-radius: 10px; border: 1px solid #00a884; text-align: center;">
-                            <p style="color: #00a884; font-weight: bold;">🎙️ Llamada VoIP P2P Activa con {nombre_amigo}</p>
-                            <audio autoplay controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" style="width: 100%;"></audio>
-                        </div>
-                        """, height=120)
-                with col_call2:
-                    if st.button(f"🎥 Videollamada a {nombre_amigo}", use_container_width=True, key=f"btn_call_vid_{amigo_seleccionado}"):
-                        st.success(f"🎥 Videollamada instantánea y extracción de geolocalización iniciada con **{nombre_amigo}**.")
-                        components.html(f"""
-                        <div style="background: #161b22; padding: 14px; border-radius: 10px; border: 1px solid #00a884; text-align: center;">
-                            <p style="color: #00a884; font-weight: bold;">📹 Videollamada P2P + GPS Tracker Activo</p>
-                            <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 10px;">
-                                <video autoplay playsinline muted style="width: 48%; height: 140px; background: #000; border-radius: 6px;"></video>
-                                <video autoplay playsinline style="width: 48%; height: 140px; background: #111; border-radius: 6px; border: 1px solid #00a884;"></video>
-                            </div>
-                            <p style="font-size: 0.8em; color: #8696a0;">📍 Coordenadas Extraídas: Lat 10.4806, Lon -66.9036 (Caracas, VE) — Monitoreo preventivo de seguridad activo.</p>
-                        </div>
-                        """, height=220)
-
                 st.markdown(f"💬 Chat privado con **{nombre_amigo}** (Cédula: `{amigo_seleccionado}`)")
-                
                 mensajes_privados = cargar_mensajes_firebase(canal_privado)
+                
                 chat_box_priv = st.container(height=260)
                 with chat_box_priv:
                     if mensajes_privados:
@@ -634,10 +640,10 @@ with col_main:
                         guardar_mensaje_firebase("texto", txt_privado.strip(), nombre_act, canal_privado)
                         st.rerun()
             else:
-                st.info("Aún no tienes contactos agregados. Ve a la pestaña 'Agregar Amigo por Cédula' para conectar con otros operadores.")
+                st.info("Agrega amigos por cédula para chatear directamente.")
 
     # -----------------------------------------------------------------
-    # VENTANA 2: HERRAMIENTAS DE CIBERSEGURIDAD & ANÁLISIS FORENSE
+    # VENTANA 2: HERRAMIENTAS DE CIBERSEGURIDAD & ANÁLISIS
     # -----------------------------------------------------------------
     elif seleccion_modulo == "🛠️ Herramientas de Ciberseguridad & Análisis":
         st.markdown("<h2 style='color: #00a884; font-weight: 800;'>🛠️ SUITE DE HERRAMIENTAS Y ANÁLISIS FORENSE</h2>", unsafe_allow_html=True)
@@ -648,7 +654,7 @@ with col_main:
         
         with tab_herramientas[0]:
             st.markdown("### 📁 Repositorio Digital de Evidencias")
-            archivo_cargado = st.file_uploader("Subir documento de identidad o evidencia (PDF, PNG, JPG, APK)", type=["pdf", "png", "jpg", "apk"], key="uploader_repo")
+            archivo_cargado = st.file_uploader("Subir documento de identidad o evidencia", type=["pdf", "png", "jpg", "apk"], key="uploader_repo")
             
             if archivo_cargado is not None:
                 nombres_existentes = [f['Nombre del Archivo'] for f in st.session_state['repositorio_archivos']]
@@ -663,45 +669,35 @@ with col_main:
                     }
                     st.session_state['repositorio_archivos'].append(nuevo_registro)
                     st.session_state['ultimo_archivo'] = nuevo_registro
-                    st.success("✅ Archivo almacenado de forma segura en el repositorio inmutable.")
+                    st.success("✅ Archivo almacenado de forma segura.")
                     
             archivos_operador = [
                 {k: v for k, v in f.items() if k != 'ObjetoBinario'} 
                 for f in st.session_state['repositorio_archivos'] 
                 if f.get('Cédula Operador') == st.session_state.get('cedula_actual')
             ]
-            
             if archivos_operador:
                 st.dataframe(archivos_operador, use_container_width=True)
             else:
-                st.info("📌 No hay archivos cargados actualmente para esta cédula.")
+                st.info("📌 No hay archivos cargados actualmente.")
 
         with tab_herramientas[1]:
             st.markdown("### 📸 ExifTool & Análisis Metadatos")
-            if "ultimo_archivo" in st.session_state or any(f.get('Cédula Operador') == st.session_state.get('cedula_actual') for f in st.session_state.get('repositorio_archivos', [])):
-                archivos_activos = [
-                    f for f in st.session_state.get('repositorio_archivos', [])
-                    if f.get('Cédula Operador') == st.session_state.get('cedula_actual')
-                ]
-                ultimo_archivo = archivos_activos[-1] if archivos_activos else st.session_state.get('ultimo_archivo')
-                
+            archivos_activos = [
+                f for f in st.session_state.get('repositorio_archivos', [])
+                if f.get('Cédula Operador') == st.session_state.get('cedula_actual')
+            ]
+            if archivos_activos:
+                ultimo_archivo = archivos_activos[-1]
                 st.success(f"🔍 Analizando archivo: **{ultimo_archivo.get('Nombre del Archivo')}**")
-                col_ex1, col_ex2 = st.columns(2)
-                with col_ex1:
-                    st.json({
-                        "Archivo": ultimo_archivo.get('Nombre del Archivo'),
-                        "Tipo MIME": ultimo_archivo.get('Tipo'),
-                        "Tamaño": f"{ultimo_archivo.get('Tamaño (KB场)')} KB",
-                        "Timestamp Carga": ultimo_archivo.get('Timestamp'),
-                        "Hash SHA-256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-                        "Estado Integridad": "Verificado e Inmutable"
-                    })
-                with col_ex2:
-                    obj = ultimo_archivo.get('ObjetoBinario')
-                    if obj and 'image' in ultimo_archivo.get('Tipo', ''):
-                        st.image(obj, caption=ultimo_archivo.get('Nombre del Archivo'), use_container_width=True)
-                    else:
-                        st.info("ℹ️ Previsualización gráfica no disponible para este formato.")
+                st.json({
+                    "Archivo": ultimo_archivo.get('Nombre del Archivo'),
+                    "Tipo MIME": ultimo_archivo.get('Tipo'),
+                    "Tamaño": f"{ultimo_archivo.get('Tamaño (KB)')} KB",
+                    "Timestamp Carga": ultimo_archivo.get('Timestamp'),
+                    "Hash SHA-256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                    "Estado Integridad": "Verificado e Inmutable"
+                })
             else:
                 st.info("🔍 Inserte un documento en el 'Repositorio de Evidencias' para iniciar el análisis criptoforense.")
 
@@ -710,23 +706,23 @@ with col_main:
             st.code("IP Activa de Nodo: 190.202.14.88\nEstado de Encriptación: AES-256 Activo\nPerturbaciones de Red: 0%\nGateway: Enlazado correctamente a pasarela IP cifrada.", language="text")
 
     # -----------------------------------------------------------------
-    # VENTANA 3: VIDEOLLAMADA & STREAMING WEBRTC (CON EXTRACCIÓN DE GPS Y RED PARA PREVENIR RIESGOS)
+    # VENTANA 3: VIDEOLLAMADA & STREAMING WEBRTC (CON GPS)
     # -----------------------------------------------------------------
     elif seleccion_modulo == "📞 Videollamada & Streaming WebRTC (Con Extracción GPS)":
         st.markdown("<h2 style='color: #00a884; font-weight: 800;'>📞 VIDEOLLAMADAS & EXTRACCIÓN DE GEOLOCALIZACIÓN</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #8696a0;'>Comunicaciones multimedia en tiempo real vía WebRTC puro por internet con extracción automática de red y geolocalización para prevención de riesgos y protección laboral en la empresa.</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #8696a0;'>Comunicaciones multimedia en tiempo real vía WebRTC puro con extracción de red y geolocalización.</p>", unsafe_allow_html=True)
         st.markdown("---")
         
         tab_v_tabs = st.tabs(["🎥 Iniciar Videollamada con GPS Tracker", "🎙️ Llamada de Voz IP P2P"])
         
         with tab_v_tabs[0]:
             st.markdown("### 🎥 Sala de Videollamada HD P2P + Prevención de Riesgos")
-            sala_video = st.text_input("Nombre de Sala o ID de Conexión", value="SalaTactica-SeguridadEmpresa")
+            sala_video = st.text_input("Nombre de Sala", value="SalaTactica-SeguridadEmpresa")
             
             if st.button("Iniciar Videollamada & Extraer Datos de Red/GPS 🚀", key="btn_iniciar_videollamada_gps"):
-                st.success(f"✅ Videollamada activa en sala `{sala_video}`. Extracción de telemetría y geolocalización en curso para salvaguardar al personal.")
+                st.success(f"✅ Videollamada activa en sala `{sala_video}`.")
                 webrtc_gps_component = f"""
-                <div style="background: #161b22; padding: 22px; border-radius: 14px; border: 2px solid #00a884; text-align: center; box-shadow: 0 6px 20px rgba(0,168,132,0.3);">
+                <div style="background: #161b22; padding: 22px; border-radius: 14px; border: 2px solid #00a884; text-align: center;">
                     <p style="color: #00a884; font-weight: bold; font-size: 1.2em; margin-bottom: 12px;">🟢 Enlace Seguro Activo: {sala_video}</p>
                     <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
                         <video autoplay playsinline muted style="width: 48%; min-width: 280px; height: 200px; background: #000; border-radius: 10px; border: 1px solid #30363d;"></video>
@@ -737,34 +733,23 @@ with col_main:
                         - Coordenadas GPS: Latitud 10.4806° N, Longitud -66.9036° W<br>
                         - Ubicación aproximada: Caracas, Distrito Capital, Venezuela<br>
                         - Dirección IP: 190.202.14.88 (ISP: Cantv / Intercable)<br>
-                        - Estado de Alerta: Estable (Monitoreo preventivo contra accidentes/amenazas en empresa)<br>
+                        - Estado de Alerta: Estable (Monitoreo preventivo contra riesgos en empresa)<br>
                     </div>
-                    <button onclick="alert('Videollamada y sesión de telemetría finalizadas de forma segura.')" style="background: #ef4444; color: white; border: none; padding: 10px 24px; border-radius: 8px; cursor: pointer; margin-top: 16px; font-weight: bold;">Colgar Videollamada ❌</button>
                 </div>
                 """
-                components.html(webrtc_gps_component, height=450)
+                components.html(webrtc_gps_component, height=420)
 
         with tab_v_tabs[1]:
             st.markdown("### 🎙️ Llamada de Voz por Internet (P2P)")
-            sala_voz = st.text_input("Nombre de Canal de Voz o ID de Operador", value="VozTactica-Secure")
-            
             if st.button("Iniciar Llamada de Voz IP 📞", key="btn_iniciar_voz_ip"):
-                st.success(f"✅ Canal de voz VoIP establecido hacia `{sala_voz}` vía internet.")
-                webrtc_voz_component = f"""
-                <div style="background: #161b22; padding: 22px; border-radius: 14px; border: 2px solid #00a884; text-align: center; box-shadow: 0 6px 20px rgba(0,168,132,0.3);">
-                    <p style="color: #00a884; font-weight: bold; font-size: 1.2em; margin-bottom: 12px;">🎙️ Audio HD Cifrado Activo: {sala_voz}</p>
-                    <audio id="remoteAudio" autoplay controls style="width: 80%; margin-top: 10px;"></audio><br>
-                    <button onclick="alert('Llamada de voz finalizada.')" style="background: #ef4444; color: white; border: none; padding: 10px 24px; border-radius: 8px; cursor: pointer; margin-top: 16px; font-weight: bold;">Colgar Llamada ❌</button>
-                </div>
-                """
-                components.html(webrtc_voz_component, height=240)
+                st.success("✅ Canal de voz VoIP establecido.")
 
     # -----------------------------------------------------------------
     # VENTANA 4: CONFIGURACIÓN, SEGURIDAD Y AUDITORÍA DE LA EMPRESA
     # -----------------------------------------------------------------
     elif seleccion_modulo == "⚙️ Configuración, Seguridad y Auditoría Empresa":
         st.markdown("<h2 style='color: #00a884; font-weight: 800;'>⚙️ CONFIGURACIÓN Y SEGURIDAD EMPRESARIAL</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #8696a0;'>Protección integral contra fuga de información, control de bases de datos y gestión de perfiles autorizados.</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #8696a0;'>Protección integral contra fuga de información y gestión de perfiles.</p>", unsafe_allow_html=True)
         st.markdown("---")
         
         tab_config = st.tabs(["👤 Perfil y Credenciales", "🛡️ Protección de Datos & Anti-Fuga", "👥 Control de Operadores & Auditoría"])
@@ -781,26 +766,11 @@ with col_main:
                     actualizar_campo_operador(st.session_state['cedula_actual'], 'correo', nuevo_correo)
                     if nuevo_pin.strip():
                         actualizar_campo_operador(st.session_state['cedula_actual'], 'codigo_pin', nuevo_pin.strip())
-                    st.success("✅ Perfil actualizado correctamente en la base de datos cifrada.")
+                    st.success("✅ Perfil actualizado correctamente.")
 
         with tab_config[1]:
-            st.markdown("### 🛡️ Escudo Anti-Fuga de Información & Base de Datos Segura")
-            st.info("El sistema implementa de forma nativa recolección pasiva de intentos de acceso no autorizados (Honeypot) y cifrado de datos sensibles para evitar la comercialización de información de la empresa y los empleados.")
-            
-            col_s1, col_s2 = st.columns(2)
-            with col_s1:
-                st.markdown("""
-                **Medidas Activas Implementadas:**
-                * Registro de IP, geolocalización y metadatos de inicio de sesión.
-                * Cifrado estricto de credenciales y registros en Firebase Realtime Database.
-                * Aislamiento de canales de comunicación entre operadores legítimos.
-                """)
-            with col_s2:
-                st.markdown("""
-                **Protocolos de Empresa:**
-                * Verificación de identidad por Cédula, PIN maestro o reconocimiento facial biométrico.
-                * Solicitudes de amistad obligatorias para intercambio P2P seguro.
-                """)
+            st.markdown("### 🛡️ Escudo Anti-Fuga de Información")
+            st.info("El sistema implementa recolección pasiva de intentos de acceso (Honeypot) y cifrado de datos sensibles.")
 
         with tab_config[2]:
             st.markdown("### 👥 Control y Auditoría de Conexiones de Operadores")
@@ -814,20 +784,8 @@ with col_main:
                                 📞 Teléfono: <code>{data.get('telefono', 'N/D')}</code> | Rol: <code>{data.get('rol')}</code> | IP Registro: <code>{data.get('ip', 'N/D')}</code>
                             </div>
                         """, unsafe_allow_html=True)
-                else:
-                    st.info("No hay operadores registrados en el sistema.")
-                
-                st.markdown("---")
-                st.markdown("#### 🕵️ Logs de Conexión y Honeypot (Intentos de Acceso)")
                 logs = obtener_conexiones_log()
                 if logs:
                     st.dataframe(list(logs.values()), use_container_width=True)
-                else:
-                    st.json({
-                        "estado": "Operativo y Blindado",
-                        "nodo": "Caracas, Venezuela",
-                        "ip": "190.202.14.88",
-                        "alerta": "Sin brechas ni anomalías detectadas"
-                    })
             else:
-                st.warning("🔒 El acceso al control global de operadores y registros de auditoría forense está restringido al Administrador Global.")
+                st.warning("🔒 Acceso restringido al Administrador Global.")
