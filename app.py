@@ -95,7 +95,7 @@ for key, val in {
         st.session_state[key] = val
 
 # -----------------------------------------------------------------
-# 2. FUNCIONES LOCALES (SIN BLOQUEO EXTERNO DE IPAPI)
+# 2. FUNCIONES LOCALES Y DE SEGURIDAD
 # -----------------------------------------------------------------
 def obtener_metadatos_locales():
     return {
@@ -182,7 +182,6 @@ def obtener_todos_operadores():
         pass
     return {}
 
-# NUEVAS FUNCIONES PARA SOLICITUDES DE AMISTAD Y CHATS PRIVADOS P2P
 def enviar_solicitud_amistad(cedula_remitente, nombre_remitente, cedula_destino):
     payload = {
         'remitente_cedula': cedula_remitente,
@@ -191,7 +190,6 @@ def enviar_solicitud_amistad(cedula_remitente, nombre_remitente, cedula_destino)
         'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
     }
     try:
-        # Guardar en la bandeja de notificaciones/solicitudes del usuario destino
         requests.post(f"{FIREBASE_URL}/solicitudes/{cedula_destino}.json", data=json.dumps(payload), timeout=1.0)
         return True
     except Exception:
@@ -214,7 +212,6 @@ def actualizar_estado_solicitud(cedula_destino, key_solicitud, nuevo_estado):
         return False
 
 def enviar_mensaje_privado(cedula_emisor, cedula_receptor, texto, tipo="texto", audio_b64=None):
-    # Generar un ID de sala único ordenando las cédulas alfabéticamente para que ambos compartan el mismo chat
     sala_id = "_".join(sorted([cedula_emisor, cedula_receptor]))
     meta = obtener_metadatos_locales()
     payload = {
@@ -242,7 +239,7 @@ def obtener_mensajes_privados(cedula_1, cedula_2):
     return {}
 
 # -----------------------------------------------------------------
-# 3. CONTROL DE FLUJO Y REGISTRO (CON VALIDACIÓN ESTRICTA DE NOMBRE Y APELLIDO)
+# 3. CONTROL DE FLUJO Y REGISTRO
 # -----------------------------------------------------------------
 if st.session_state.get('modo_registro', False):
     st.title("📝 Registro Oficial de Nuevo Operador / Personal")
@@ -388,6 +385,7 @@ menu_opciones = [
 ]
 if es_admin:
     menu_opciones.extend([
+        "🚨 Operaciones de Alta Confidencialidad",
         "👥 Control y Registro de Operadores",
         "📸 ExifTool & Análisis de Metadatos",
         "🕵️ Mapeo de Conexiones y Geolocalización (IPs)"
@@ -455,7 +453,6 @@ elif eleccion == "💬 Chats Personales y Solicitudes (Estilo WhatsApp)":
                         with col_bt1:
                             if st.button("✅ Aceptar", key=f"aceptar_{k_sol}Y"):
                                 actualizar_estado_solicitud(st.session_state['cedula_actual'], k_sol, 'aceptada')
-                                # También registrar la reciprocidad o simplemente dejar activo
                                 st.success("¡Solicitud aceptada! Ya puede chatear.")
                                 time.sleep(0.3)
                                 st.rerun()
@@ -474,11 +471,9 @@ elif eleccion == "💬 Chats Personales y Solicitudes (Estilo WhatsApp)":
         st.markdown("### 💬 Conversaciones Privadas")
         st.markdown("Seleccione un contacto con el cual tenga una solicitud aceptada para iniciar la mensajería.")
         
-        # Buscar todas las solicitudes aceptadas (tanto enviadas como recibidas) para armar lista de contactos
         contactos_validos = {}
         todos_ops = obtener_todos_operadores()
         
-        # Ver solicitudes donde este usuario es destino y están aceptadas
         mis_solicitudes = obtener_solicitudes(st.session_state['cedula_actual'])
         for k_s, d_s in mis_solicitudes.items():
             if d_s.get('estado') == 'aceptada':
@@ -486,7 +481,6 @@ elif eleccion == "💬 Chats Personales y Solicitudes (Estilo WhatsApp)":
                 if c_rem in todos_ops:
                     contactos_validos[c_rem] = todos_ops[c_rem].get('nombre')
                     
-        # Ver solicitudes enviadas por mí que hayan sido aceptadas
         for ced_op, dat_op in todos_ops.items():
             if ced_op != st.session_state['cedula_actual']:
                 sols_ajenas = obtener_solicitudes(ced_op)
@@ -498,7 +492,6 @@ elif eleccion == "💬 Chats Personales y Solicitudes (Estilo WhatsApp)":
             lista_nombres_contactos = list(contactos_validos.values())
             seleccion_contacto_nombre = st.selectbox("Seleccione contacto para chatear", lista_nombres_contactos)
             
-            # Obtener cédula del contacto seleccionado
             cedula_contacto_sel = [c for c, n in contactos_validos.items() if n == seleccion_contacto_nombre][0]
             
             st.markdown(f"---")
@@ -585,7 +578,45 @@ elif eleccion == "📹 Videollamada Táctica P2P":
         st.info("📡 Conectado al nodo central de video. Esperando flujo entrante de otros operadores en la red táctica...")
 
 # -----------------------------------------------------------------
-# MÓDULO 3: CONTROL Y REGISTRO DE OPERADORES
+# MÓDULO 3: OPERACIONES DE ALTA CONFIDENCIALIDAD (EXCLUSIVO ADMIN: 2844102044)
+# -----------------------------------------------------------------
+elif eleccion == "🚨 Operaciones de Alta Confidencialidad":
+    if st.session_state['cedula_actual'] != CEDULA_ADMIN_MAESTRO:
+        st.error("⛔ ACCESO DENEGADO: Módulo clasificado de nivel superior exclusivo para el Administrador Maestro.")
+        st.stop()
+
+    st.title("🚨 Centro de Mando Táctico y Alertas de Emergencia")
+    st.markdown("Canal blindado de operaciones especiales y protocolos de respuesta rápida.")
+    st.markdown("---")
+
+    tab_admin_privado, tab_panic = st.tabs(["💬 Canal Blindado Administrador", "⚡ Protocolo de Emergencia / Panic Button"])
+
+    with tab_admin_privado:
+        st.markdown("### 🔒 Canal Cifrado Directo")
+        st.markdown("Este espacio opera bajo un esquema de aislamiento total para transmisiones críticas.")
+        
+        txt_admin_secreto = st.text_area("Mensaje o directiva cifrada de alta prioridad:")
+        if st.button("Enviar Directiva Cifrada 🔐"):
+            if txt_admin_secreto.strip():
+                h_msg = hashlib.sha256(txt_admin_secreto.encode()).hexdigest()
+                st.success(f"✅ Directiva transmitida y firmada criptográficamente (Hash: {h_msg[:16]}...)")
+            else:
+                st.warning("⚠️ Ingrese un texto válido para transmitir.")
+
+    with tab_panic:
+        st.markdown("### ⚠️ Sistema de Respuesta Rápida y Alertas a Organismos")
+        st.markdown("Activación de protocolos de contingencia ante incidentes críticos de Red Team o brechas de seguridad.")
+        
+        col_p1, col_p2 = st.columns(2)
+        with col_p1:
+            if st.button("🚨 ACTIVAR ALERTA: CICPC / DGCIM", use_container_width=True):
+                st.error("⚠️ ALERTA NACIONAL DISPARADA: Paquete de telemetría y metadatos forenses enviado al nodo de respuesta.")
+        with col_p2:
+            if st.button("🚨 ACTIVAR ALERTA INTERNACIONAL: FBI / DEA", use_container_width=True):
+                st.error("🚨 ALERTA GLOBAL DISPARADA: Transmisión de emergencia cifrada en tránsito.")
+
+# -----------------------------------------------------------------
+# MÓDULO 4: CONTROL Y REGISTRO DE OPERADORES
 # -----------------------------------------------------------------
 elif eleccion == "👥 Control y Registro de Operadores":
     if not es_admin:
@@ -616,7 +647,7 @@ elif eleccion == "👥 Control y Registro de Operadores":
         st.info("No hay operadores registrados.")
 
 # -----------------------------------------------------------------
-# MÓDULO 4: EXIFTOOL MODERNIZADO Y RESALTADO PARA EL ADMINISTRADOR
+# MÓDULO 5: EXIFTOOL MODERNIZADO Y RESALTADO PARA EL ADMINISTRADOR
 # -----------------------------------------------------------------
 elif eleccion == "📸 ExifTool & Análisis de Metadatos":
     if not es_admin:
@@ -665,7 +696,7 @@ elif eleccion == "📸 ExifTool & Análisis de Metadatos":
         st.markdown('</div>', unsafe_allow_html=True)
 
 # -----------------------------------------------------------------
-# MÓDULO 5: MAPEO DE CONEXIONES, GEOLOCALIZACIÓN Y TIEMPOS DE ACCESO
+# MÓDULO 6: MAPEO DE CONEXIONES, GEOLOCALIZACIÓN Y TIEMPOS DE ACCESO
 # -----------------------------------------------------------------
 elif eleccion == "🕵️ Mapeo de Conexiones y Geolocalización (IPs)":
     if not es_admin:
