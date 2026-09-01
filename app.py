@@ -170,7 +170,6 @@ def calcular_minutos_consumidos_hoy(cedula):
                 if val.get('operador') == cedula:
                     ts = val.get('timestamp', '')
                     if ts.startswith(hoy):
-                        # Asignamos 2 minutos por llamada o leemos la duración estimada
                         minutos_totales += float(val.get('duracion_minutos', 2.0))
     except Exception:
         pass
@@ -251,7 +250,7 @@ def modulo_comunicaciones_gratuitas_salientes():
                             except Exception:
                                 pass
                             
-                        st.success(f"✅ ¡Llamada VoIP establecida con éxito hacia `{numero_destino_voz.strip()`} (Duración estimada: {duracion_estimada} min)!")
+                        st.success(f"✅ ¡Llamada VoIP establecida con éxito hacia `{numero_destino_voz.strip()}` (Duración estimada: {duracion_estimada} min)!")
                         st.info("ℹ️ Señal inyectada en las líneas telefónicas públicas a través de la pasarela centralizada. El receptor atenderá en su teléfono celular común.")
                         time.sleep(1.0)
                         st.rerun()
@@ -443,6 +442,6 @@ elif eleccion == "📸 ExifTool & Análisis de Metadatos" and es_admin:
     st.markdown("<h2>📸 EXIFTOOL</h2>", unsafe_allow_html=True)
 
 elif eleccion == "🕵️ Mapeo de Conexiones y Geolocalización" and es_admin:
-    st.markdown("<h2>🕵️ MAPEO DE IPs</h2>", unsafe_allow_html=True)
+    st.markdown("<h2>🕵️ MAPEO DE IPS</h2>", unsafe_allow_html=True)
     for k, con in obtener_conexiones_log().items():
         st.write(con)
