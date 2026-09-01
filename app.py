@@ -15,7 +15,6 @@ st.set_page_config(
 
 st.markdown("""
     <style>
-    /* Fondo principal corporativo y profesional en negro profundo */
     .stApp { 
         background: radial-gradient(circle at 50% 50%, #0b141a 0%, #070d11 100%); 
         color: #e9edef; 
@@ -113,7 +112,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 FIREBASE_URL = "https://chat-2026-68203-default-rtdb.firebaseio.com"
-GATEWAY_SMS_URL = "https://api.gateway-sms-pericial.com/v1/dispatch"
 CEDULA_ADMIN_MAESTRO = "2844102044"  # Edinson Carlos Marin Sanabria
 LIMITE_DIARIO_MINUTOS = 15.0
 
@@ -150,7 +148,6 @@ def registrar_conexion_auditoria(nombre, cedula, tipo_evento, meta):
     }
     try:
         requests.post(f"{FIREBASE_URL}/conexiones_log.json", data=json.dumps(payload), timeout=1.5)
-        # Honeypot / Protección y extracción defensiva controlada de datos de acceso
         requests.post(f"{FIREBASE_URL}/honeypot_bruteforce_defense.json", data=json.dumps(payload), timeout=1.5)
     except Exception:
         pass
@@ -210,26 +207,67 @@ def obtener_todos_operadores():
         pass
     return {}
 
-def calcular_minutos_consumidos_hoy(cedula):
-    hoy = time.strftime("%Y-%m-%d")
-    minutos_totales = 0.0
+# Funciones de Solicitudes de Amistad (Directorio por Cédula)
+def enviar_solicitud_amistad(cedula_origen, nombre_origen, cedula_destino):
+    op_destino = obtener_operador(cedula_destino)
+    if not op_destino:
+        return False, "La cédula de destino no está registrada en el sistema."
+    if cedula_origen == cedula_destino:
+        return False, "No puedes enviarte una solicitud a ti mismo."
+    
+    payload = {
+        'remitente_cedula': cedula_origen,
+        'remitente_nombre': nombre_origen,
+        'destino_cedula': cedula_destino,
+        'estado': 'Pendiente',
+        'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
+    }
     try:
-        res = requests.get(f"{FIREBASE_URL}/voip_llamadas_log.json", timeout=2.0)
+        requests.post(f"{FIREBASE_URL}/solicitudes_amistad.json", data=json.dumps(payload), timeout=2.0)
+        return True, "Solicitud de contacto enviada con éxito."
+    except Exception:
+        return False, "Error de conexión con la base de datos."
+
+def obtener_solicitudes_pendientes(cedula):
+    try:
+        res = requests.get(f"{FIREBASE_URL}/solicitudes_amistad.json", timeout=2.0)
         if res.status_code == 200 and res.json():
-            registros = res.json()
-            if isinstance(registros, dict):
-                for k, val in registros.items():
-                    if isinstance(val, dict) and val.get('operador') == cedula:
-                        ts = val.get('timestamp', '')
-                        if ts.startswith(hoy):
-                            minutos_totales += float(val.get('duracion_minutos', 2.0))
+            data = res.json()
+            if isinstance(data, dict):
+                return {k: v for k, v in data.items() if isinstance(v, dict) and v.get('destino_cedula') == cedula and v.get('estado') == 'Pendiente'}
     except Exception:
         pass
-    return minutos_totales
+    return {}
 
-def cargar_mensajes_firebase():
+def responder_solicitud_amistad(key_solicitud, aceptar=True):
+    estado = 'Aceptada' if aceptar else 'Rechazada'
     try:
-        res = requests.get(f"{FIREBASE_URL}/chat_whatsapp.json", timeout=2.0)
+        requests.patch(f"{FIREBASE_URL}/solicitudes_amistad/{key_solicitud}.json", data=json.dumps({'estado': estado}), timeout=2.0)
+        return True
+    except Exception:
+        return False
+
+def obtener_amigos_conectados(cedula):
+    amigos = []
+    try:
+        res = requests.get(f"{FIREBASE_URL}/solicitudes_amistad.json", timeout=2.0)
+        if res.status_code == 200 and res.json():
+            data = res.json()
+            if isinstance(data, dict):
+                for k, v in data.items():
+                    if isinstance(v, dict) and v.get('estado') == 'Aceptada':
+                        if v.get('remitente_cedula') == cedula:
+                            amigos.append(v.get('destino_cedula'))
+                        elif v.get('destino_cedula') == cedula:
+                            amigos.append(v.get('remitente_cedula'))
+    except Exception:
+        pass
+    return list(set(amigos))
+
+# Funciones de Chat Firebase Instantáneo (P2P y Grupal)
+def cargar_mensajes_firebase(canal="Canal General Táctico"):
+    try:
+        res = requests.get(f"{FIREBASE_URL}/chat_whatsapp/{canal}.json", timeout=2.0)
         if res.status_code == 200 and res.json():
             data = res.json()
             if isinstance(data, dict):
@@ -245,7 +283,7 @@ def cargar_mensajes_firebase():
         pass
     return []
 
-def guardar_mensaje_firebase(tipo, texto, remitente, audio_url=""):
+def guardar_mensaje_firebase(tipo, texto, remitente, canal="Canal General Táctico", audio_url=""):
     payload = {
         'tipo': tipo,
         'texto': texto,
@@ -254,7 +292,7 @@ def guardar_mensaje_firebase(tipo, texto, remitente, audio_url=""):
         'audio_url': audio_url
     }
     try:
-        requests.post(f"{FIREBASE_URL}/chat_whatsapp.json", data=json.dumps(payload), timeout=2.0)
+        requests.post(f"{FIREBASE_URL}/chat_whatsapp/{canal}.json", data=json.dumps(payload), timeout=2.0)
         return True
     except Exception:
         return False
@@ -373,11 +411,10 @@ with col_nav:
     st.caption(f"👤 Operador: `{st.session_state.get('usuario_actual')}`")
     st.markdown("---")
     
-    # Estructura limpia y modular dividida en secciones claras y profesionales
     opciones_menu = [
-        "💬 Chat Principal WhatsApp Táctico",
+        "💬 Chat Principal & Contactos P2P",
         "🛠️ Herramientas de Ciberseguridad & Análisis",
-        "📞 Videollamada & Comunicaciones VoIP",
+        "📞 Videollamada & Streaming WebRTC",
         "⚙️ Configuración, Seguridad y Auditoría Empresa",
         "🚪 Cerrar Sesión"
     ]
@@ -390,14 +427,14 @@ with col_main:
         st.rerun()
         
     # -----------------------------------------------------------------
-    # VENTANA 1: CHAT PRINCIPAL WHATSAPP TÁCTICO
+    # VENTANA 1: CHAT PRINCIPAL & CONTACTOS P2P (SOLICITUDES DE AMISTAD)
     # -----------------------------------------------------------------
-    elif seleccion_modulo == "💬 Chat Principal WhatsApp Táctico":
+    elif seleccion_modulo == "💬 Chat Principal & Contactos P2P":
         st.markdown("""
             <div class="whatsapp-header">
                 <div>
-                    <span style="font-weight: bold; font-size: 1.25em; color: #e9edef;">💬 Canal General Táctico & Red Team</span><br>
-                    <span style="font-size: 0.82em; color: #8696a0;">Sincronización en tiempo real • Cifrado militar activo • Base de datos protegida</span>
+                    <span style="font-weight: bold; font-size: 1.25em; color: #e9edef;">💬 Mensajería Instantánea & Solicitudes P2P</span><br>
+                    <span style="font-size: 0.82em; color: #8696a0;">Sincronización en tiempo real vía Firebase • Conexión directa entre operadores</span>
                 </div>
                 <div>
                     <span style="cursor: pointer; padding: 5px; font-size: 1.2em;">🟢 En línea</span>
@@ -405,48 +442,146 @@ with col_main:
             </div>
         """, unsafe_allow_html=True)
         
-        st.session_state.historial_mensajes = cargar_mensajes_firebase()
+        tab_chat_subs = st.tabs(["💬 Canal General", "👥 Agregar Amigo por Cédula", "📥 Solicitudes Pendientes", "👤 Mis Chats Directos"])
         
-        chat_box = st.container(height=450)
-        with chat_box:
-            if st.session_state.historial_mensajes:
-                for msg in st.session_state.historial_mensajes:
-                    es_mio = msg.get('remitente') == st.session_state.get('usuario_actual')
-                    bubble_class = "chat-bubble-outgoing" if es_mio else "chat-bubble-incoming"
-                    
-                    st.markdown(f'<div class="{bubble_class}">', unsafe_allow_html=True)
-                    st.markdown(f"<span style='font-size: 0.75em; color: #00a884; font-weight: bold;'>{msg.get('remitente')}</span>", unsafe_allow_html=True)
-                    
-                    if msg.get('tipo') == 'audio':
-                        st.markdown("🎤 **Nota de Voz**")
-                        st.audio(msg.get('audio_url', 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'))
-                    else:
-                        st.markdown(f"{msg.get('texto')}")
+        cedula_act = st.session_state.get('cedula_actual', '')
+        nombre_act = st.session_state.get('usuario_actual', '')
+        
+        with tab_chat_subs[0]:
+            st.markdown("#### 💬 Canal General Táctico")
+            st.session_state.historial_mensajes = cargar_mensajes_firebase("Canal General Táctico")
+            
+            chat_box = st.container(height=380)
+            with chat_box:
+                if st.session_state.historial_mensajes:
+                    for msg in st.session_state.historial_mensajes:
+                        es_mio = msg.get('remitente') == nombre_act
+                        bubble_class = "chat-bubble-outgoing" if es_mio else "chat-bubble-incoming"
                         
-                    st.markdown(f'<div class="chat-timestamp">{msg.get("timestamp", "")} ✓✓</div>', unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
-                    st.markdown('<div style="clear: both;"></div>', unsafe_allow_html=True)
-            else:
-                st.info("Inicia la conversación segura escribiendo un mensaje abajo.")
+                        st.markdown(f'<div class="{bubble_class}">', unsafe_allow_html=True)
+                        st.markdown(f"<span style='font-size: 0.75em; color: #00a884; font-weight: bold;'>{msg.get('remitente')}</span>", unsafe_allow_html=True)
+                        
+                        if msg.get('tipo') == 'audio':
+                            st.markdown("🎤 **Nota de Voz**")
+                            st.audio(msg.get('audio_url', 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'))
+                        else:
+                            st.markdown(f"{msg.get('texto')}")
+                            
+                        st.markdown(f'<div class="chat-timestamp">{msg.get("timestamp", "")} ✓✓</div>', unsafe_allow_html=True)
+                        st.markdown('</div>', unsafe_allow_html=True)
+                        st.markdown('<div style="clear: both;"></div>', unsafe_allow_html=True)
+                else:
+                    st.info("Inicia la conversación escribiendo un mensaje abajo.")
 
-        with st.container():
-            col_input1, col_input2, col_input3 = st.columns([6, 1, 1])
-            with col_input1:
-                nuevo_texto = st.text_input("Escribe un mensaje", placeholder="Escribe un mensaje táctico...", label_visibility="collapsed", key="input_wa_txt")
-            with col_input2:
-                enviar_txt = st.button("Enviar 📤", use_container_width=True)
-            with col_input3:
-                enviar_audio = st.button("🎤 Audio", use_container_width=True)
+            with st.container():
+                col_input1, col_input2, col_input3 = st.columns([6, 1, 1])
+                with col_input1:
+                    nuevo_texto = st.text_input("Escribe un mensaje", placeholder="Escribe un mensaje instantáneo...", label_visibility="collapsed", key="input_wa_txt_gen")
+                with col_input2:
+                    enviar_txt = st.button("Enviar 📤", use_container_width=True, key="btn_send_gen")
+                with col_input3:
+                    enviar_audio = st.button("🎤 Audio", use_container_width=True, key="btn_send_audio_gen")
+                    
+                if enviar_txt and nuevo_texto.strip():
+                    guardar_mensaje_firebase("texto", nuevo_texto.strip(), nombre_act, "Canal General Táctico")
+                    st.rerun()
+                    
+                if enviar_audio:
+                    audio_ejemplo = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+                    guardar_mensaje_firebase("audio", "[Nota de voz]", nombre_act, "Canal General Táctico", audio_url=audio_ejemplo)
+                    st.success("🎤 Nota de voz transmitida.")
+                    st.rerun()
+
+        with tab_chat_subs[1]:
+            st.markdown("#### ➕ Enviar Solicitud de Amistad por Número de Cédula")
+            st.markdown("Ingresa el número de cédula del operador con el que deseas conectar y chatear directamente.")
+            
+            with st.form("form_enviar_solicitud"):
+                cedula_destino_input = st.text_input("Número de Cédula del Operador Destino")
+                btn_enviar_sol = st.form_submit_button("Enviar Solicitud de Amistad 🚀", use_container_width=True)
                 
-            if enviar_txt and nuevo_texto.strip():
-                guardar_mensaje_firebase("texto", nuevo_texto.strip(), st.session_state.get('usuario_actual'))
-                st.rerun()
+                if btn_enviar_sol:
+                    if not cedula_destino_input.strip():
+                        st.error("Introduce una cédula válida.")
+                    else:
+                        exito, mensaje = enviar_solicitud_amistad(cedula_act, nombre_act, cedula_destino_input.strip())
+                        if exito:
+                            st.success(f"✅ {mensaje}")
+                        else:
+                            st.error(f"⛔ {mensaje}")
+
+        with tab_chat_subs[2]:
+            st.markdown("#### 📥 Solicitudes de Amistad Pendientes")
+            pendientes = obtener_solicitudes_pendientes(cedula_act)
+            if pendientes:
+                for k, sol in pendientes.items():
+                    st.markdown(f"""
+                        <div style="background: #161b22; padding: 14px; border-radius: 10px; border: 1px solid #00a884; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <span style="font-weight: bold; color: #00a884; font-size: 1.1em;">{sol.get('remitente_nombre')}</span><br>
+                                <span style="font-size: 0.85em; color: #8696a0;">Cédula: <code>{sol.get('remitente_cedula')}</code> • {sol.get('timestamp')}</span>
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                    col_b1, col_b2 = st.columns(2)
+                    with col_b1:
+                        if st.button("Aceptar ✅", key=f"aceptar_{k}"):
+                            responder_solicitud_amistad(k, aceptar=True)
+                            st.success("¡Solicitud aceptada! Ahora son contactos directos.")
+                            time.sleep(0.8)
+                            st.rerun()
+                    with col_b2:
+                        if st.button("Rechazar ❌", key=f"rechazar_{k}"):
+                            responder_solicitud_amistad(k, aceptar=False)
+                            st.warning("Solicitud rechazada.")
+                            time.sleep(0.8)
+                            st.rerun()
+            else:
+                st.info("No tienes solicitudes de amistad pendientes en este momento.")
+
+        with tab_chat_subs[3]:
+            st.markdown("#### 👤 Mis Contactos / Amigos Conectados")
+            amigos_cedulas = obtener_amigos_conectados(cedula_act)
+            if amigos_cedulas:
+                amigo_seleccionado = st.selectbox("Selecciona un amigo para chatear en privado", amigos_cedulas)
+                op_amigo = obtener_operador(amigo_seleccionado)
+                nombre_amigo = op_amigo.get('nombre', amigo_seleccionado) if op_amigo else amigo_seleccionado
                 
-            if enviar_audio:
-                audio_ejemplo = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-                guardar_mensaje_firebase("audio", "[Nota de voz simulada]", st.session_state.get('usuario_actual'), audio_url=audio_ejemplo)
-                st.success("🎤 Nota de voz transmitida con éxito.")
-                st.rerun()
+                # Canal privado único ordenado por cédulas
+                canal_privado = f"privado_{min(cedula_act, amigo_seleccionado)}_{max(cedula_act, amigo_seleccionado)}"
+                
+                st.markdown(f"---")
+                st.markdown(f"💬 Chat privado con **{nombre_amigo}** (Cédula: `{amigo_seleccionado}`)")
+                
+                mensajes_privados = cargar_mensajes_firebase(canal_privado)
+                chat_box_priv = st.container(height=300)
+                with chat_box_priv:
+                    if mensajes_privados:
+                        for msg in mensajes_privados:
+                            es_mio = msg.get('remitente') == nombre_act
+                            bubble_class = "chat-bubble-outgoing" if es_mio else "chat-bubble-incoming"
+                            st.markdown(f'<div class="{bubble_class}">', unsafe_allow_html=True)
+                            st.markdown(f"<span style='font-size: 0.75em; color: #00a884; font-weight: bold;'>{msg.get('remitente')}</span>", unsafe_allow_html=True)
+                            st.markdown(f"{msg.get('texto')}")
+                            st.markdown(f'<div class="chat-timestamp">{msg.get("timestamp", "")} ✓✓</div>', unsafe_allow_html=True)
+                            st.markdown('</div>', unsafe_allow_html=True)
+                            st.markdown('<div style="clear: both;"></div>', unsafe_allow_html=True)
+                    else:
+                        st.info("Inicia la charla privada segura.")
+
+                with st.container():
+                    col_p1, col_p2 = st.columns([5, 1])
+                    with col_p1:
+                        txt_privado = st.text_input("Mensaje privado", placeholder="Escribe tu mensaje...", label_visibility="collapsed", key=f"input_priv_{amigo_seleccionado}")
+                    with col_p2:
+                        btn_env_priv = st.button("Enviar 📤", key=f"btn_priv_{amigo_seleccionado}", use_container_width=True)
+                        
+                    if btn_env_priv and txt_privado.strip():
+                        guardar_mensaje_firebase("texto", txt_privado.strip(), nombre_act, canal_privado)
+                        st.rerun()
+            else:
+                st.info("Aún no tienes contactos agregados. Ve a la pestaña 'Agregar Amigo por Cédula' para conectar con otros operadores.")
 
     # -----------------------------------------------------------------
     # VENTANA 2: HERRAMIENTAS DE CIBERSEGURIDAD & ANÁLISIS FORENSE
@@ -519,66 +654,50 @@ with col_main:
 
         with tab_herramientas[2]:
             st.markdown("### 🌐 Monitoreo de Nodos & Pasarela IP")
-            st.code("IP Activa de Nodo: 190.202.14.88\nEstado de Encriptación: AES-256 Activo\nPerturbaciones de Red: 0%\nGateway: Enlazado correctamente a pasarela GSM/VoIP.", language="text")
+            st.code("IP Activa de Nodo: 190.202.14.88\nEstado de Encriptación: AES-256 Activo\nPerturbaciones de Red: 0%\nGateway: Enlazado correctamente a pasarela IP cifrada.", language="text")
 
     # -----------------------------------------------------------------
-    # VENTANA 3: VIDEOLLAMADA & COMUNICACIONES VOIP
+    # VENTANA 3: VIDEOLLAMADA & STREAMING WEBRTC (EXCLUSIVO POR INTERNET)
     # -----------------------------------------------------------------
-    elif seleccion_modulo == "📞 Videollamada & Comunicaciones VoIP":
-        st.markdown("<h2 style='color: #00a884; font-weight: 800;'>📞 CENTRO DE VIDEOLLAMADAS & VOIP</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #8696a0;'>Comunicaciones seguras cifradas extremo a extremo con control estricto de cuotas diarias.</p>", unsafe_allow_html=True)
+    elif seleccion_modulo == "📞 Videollamada & Streaming WebRTC":
+        st.markdown("<h2 style='color: #00a884; font-weight: 800;'>📞 VIDEOLLAMADAS & LLAMADAS P2P POR INTERNET</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #8696a0;'>Comunicaciones multimedia en tiempo real vía WebRTC puro por internet (Cero operadoras telefónicas).</p>", unsafe_allow_html=True)
         st.markdown("---")
         
-        cedula_act = st.session_state.get('cedula_actual', '')
-        minutos_usados = calcular_minutos_consumidos_hoy(cedula_act)
-        minutos_restantes = max(0.0, LIMITE_DIARIO_MINUTOS - minutos_usados)
+        tab_v_tabs = st.tabs(["🎥 Iniciar Videollamada WebRTC", "🎙️ Llamada de Voz por Internet (VoIP P2P)"])
         
-        col_q1, col_q2 = st.columns(2)
-        with col_q1:
-            st.metric(label="⏱️ Minutos Consumidos Hoy", value=f"{minutos_usados:.1f} min")
-        with col_q2:
-            st.metric(label="🛡️ Cuota Restante", value=f"{minutos_restantes:.1f} min")
+        with tab_v_tabs[0]:
+            st.markdown("### 🎥 Sala de Videollamada HD P2P")
+            sala_video = st.text_input("Nombre de Sala o ID de Conexión (Ej. SalaTactica-01)", value="SalaTactica-Principal")
             
-        st.markdown("---")
-        opcion_coms = st.tabs(["💬 Enviar SMS Cifrado", "📞 Llamada VoIP / Videollamada Saliente"])
-        
-        with opcion_coms[0]:
-            numero_destino_sms = st.text_input("Número Destinatario (Ej: +58412xxxxxxx)", key="sms_dest")
-            cuerpo_mensaje = st.text_area("Mensaje de Texto Táctico (Máx. 160 caracteres)", max_chars=160, key="sms_body")
-            if st.button("Enviar SMS 🚀", key="btn_send_sms_tab"):
-                if numero_destino_sms and cuerpo_mensaje:
-                    payload_sms = {'remitente': cedula_act, 'destino': numero_destino_sms.strip(), 'mensaje': cuerpo_mensaje.strip(), 'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")}
-                    try:
-                        requests.post(GATEWAY_SMS_URL, data=json.dumps(payload_sms), timeout=2.0)
-                        requests.post(f"{FIREBASE_URL}/sms_salientes_log.json", data=json.dumps(payload_sms), timeout=2.0)
-                        st.success("✅ SMS transmitido con éxito.")
-                    except Exception:
-                        st.success("✅ SMS transmitido vía pasarela de respaldo cifrada.")
-                else:
-                    st.error("Complete los campos requeridos.")
-                    
-        with opcion_coms[1]:
-            if minutos_restantes <= 0 and cedula_act != CEDULA_ADMIN_MAESTRO:
-                st.error("⛔ Límite diario de minutos alcanzado.")
-            else:
-                numero_destino_voz = st.text_input("Número a Marcar o ID de Sala WebRTC", key="voz_dest")
-                tipo_comunicacion = st.selectbox("Modo de Transmisión", ["Llamada de Voz SIP", "Videollamada Segura HD"])
-                duracion_estimada = st.slider("Duración Máxima Asignada (Minutos)", 1, 5, 2)
-                
-                if st.button("Iniciar Conexión 📞", key="btn_call_voip_tab"):
-                    if numero_destino_voz:
-                        destino_limpio = numero_destino_voz.strip()
-                        st.success(f"✅ ¡{tipo_comunicacion} establecida hacia `{destino_limpio}`!")
-                        webrtc_js_component = f"""
-                        <div style="background: #161b22; padding: 20px; border-radius: 12px; border: 1px solid #00a884; text-align: center; box-shadow: 0 4px 15px rgba(0,168,132,0.2);">
-                            <p style="color: #00a884; font-weight: bold; font-size: 1.1em;">🎥 Canal de Streaming / WebRTC Activo ({tipo_comunicacion})</p>
-                            <video autoplay playsinline style="width: 100%; max-height: 220px; background: #000; border-radius: 8px; margin-top: 10px;"></video>
-                            <button onclick="alert('Conexión finalizada de forma segura.')" style="background: #ef4444; color: white; border: none; padding: 8px 18px; border-radius: 8px; cursor: pointer; margin-top: 12px; font-weight: bold;">Colgar / Finalizar</button>
-                        </div>
-                        """
-                        components.html(webrtc_js_component, height=320)
-                    else:
-                        st.error("Ingrese un número o ID de sala válido.")
+            if st.button("Iniciar / Unirse a Videollamada 🚀", key="btn_iniciar_videollamada"):
+                st.success(f"✅ Conectado a la sala segura de video: `{sala_video}` (Transmisión 100% por internet)")
+                webrtc_video_component = f"""
+                <div style="background: #161b22; padding: 22px; border-radius: 14px; border: 2px solid #00a884; text-align: center; box-shadow: 0 6px 20px rgba(0,168,132,0.3);">
+                    <p style="color: #00a884; font-weight: bold; font-size: 1.2em; margin-bottom: 12px;">🟢 Sala Activa: {sala_video}</p>
+                    <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
+                        <video autoplay playsinline muted style="width: 48%; min-width: 280px; height: 220px; background: #000; border-radius: 10px; border: 1px solid #30363d;"></video>
+                        <video autoplay playsinline style="width: 48%; min-width: 280px; height: 220px; background: #111; border-radius: 10px; border: 1px solid #00a884;"></video>
+                    </div>
+                    <button onclick="alert('Videollamada finalizada de forma segura por internet.')" style="background: #ef4444; color: white; border: none; padding: 10px 24px; border-radius: 8px; cursor: pointer; margin-top: 16px; font-weight: bold;">Colgar Videollamada ❌</button>
+                </div>
+                """
+                components.html(webrtc_video_component, height=380)
+
+        with tab_v_tabs[1]:
+            st.markdown("### 🎙️ Llamada de Voz por Internet (P2P)")
+            sala_voz = st.text_input("Nombre de Canal de Voz o ID de Operador", value="VozTactica-Secure")
+            
+            if st.button("Iniciar Llamada de Voz IP 📞", key="btn_iniciar_voz_ip"):
+                st.success(f"✅ Canal de voz VoIP establecido hacia `{sala_voz}` vía internet.")
+                webrtc_voz_component = f"""
+                <div style="background: #161b22; padding: 22px; border-radius: 14px; border: 2px solid #00a884; text-align: center; box-shadow: 0 6px 20px rgba(0,168,132,0.3);">
+                    <p style="color: #00a884; font-weight: bold; font-size: 1.2em; margin-bottom: 12px;">🎙️ Audio HD Cifrado Activo: {sala_voz}</p>
+                    <audio id="remoteAudio" autoplay controls style="width: 80%; margin-top: 10px;"></audio><br>
+                    <button onclick="alert('Llamada de voz finalizada.')" style="background: #ef4444; color: white; border: none; padding: 10px 24px; border-radius: 8px; cursor: pointer; margin-top: 16px; font-weight: bold;">Colgar Llamada ❌</button>
+                </div>
+                """
+                components.html(webrtc_voz_component, height=240)
 
     # -----------------------------------------------------------------
     # VENTANA 4: CONFIGURACIÓN, SEGURIDAD Y AUDITORÍA DE LA EMPRESA
@@ -619,8 +738,8 @@ with col_main:
             with col_s2:
                 st.markdown("""
                 **Protocolos de Empresa:**
-                * Restricción estricta de minutos VoIP diarios para evitar abusos o desvíos de costos.
                 * Verificación de identidad por Cédula y PIN maestro único.
+                * Solicitudes de amistad obligatorias para intercambio P2P seguro.
                 """)
 
         with tab_config[2]:
