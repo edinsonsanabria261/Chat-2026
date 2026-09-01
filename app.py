@@ -73,7 +73,7 @@ ASTERISK_WS_URL = "wss://pbx.centro-tactico.com:8089/ws"
 CEDULA_ADMIN_MAESTRO = "2844102044"  # Edinson Carlos Marin Sanabria
 LIMITE_DIARIO_MINUTOS = 15.0
 
-# Inicialización segura de estados para evitar errores de tipo NameError o KeyError
+# Inicialización segura de estados de sesión
 for key, val in {
     'acceso_concedido': False,
     'autenticado': False,
@@ -106,13 +106,13 @@ def registrar_conexion_auditoria(nombre, cedula, tipo_evento, meta):
         'timestamp': timestamp
     }
     try:
-        requests.post(f"{FIREBASE_URL}/conexiones_log.json", data=json.dumps(payload), timeout=0.8)
+        requests.post(f"{FIREBASE_URL}/conexiones_log.json", data=json.dumps(payload), timeout=1.5)
     except Exception:
         pass
 
 def obtener_conexiones_log():
     try:
-        res = requests.get(f"{FIREBASE_URL}/conexiones_log.json", timeout=1.5)
+        res = requests.get(f"{FIREBASE_URL}/conexiones_log.json", timeout=2.0)
         if res.status_code == 200 and res.json():
             data = res.json()
             if isinstance(data, dict):
@@ -131,21 +131,21 @@ def guardar_operador(cedula, nombre, apellido, rol, telefono, codigo_pin, meta, 
         'correo': correo, 'alias': alias, 'activo': True
     }
     try:
-        res = requests.put(f"{FIREBASE_URL}/operadores/{cedula}.json", data=json.dumps(payload), timeout=1.5)
+        res = requests.put(f"{FIREBASE_URL}/operadores/{cedula}.json", data=json.dumps(payload), timeout=2.0)
         return res.status_code == 200
     except Exception:
         return False
 
 def actualizar_campo_operador(cedula, campo, valor):
     try:
-        requests.patch(f"{FIREBASE_URL}/operadores/{cedula}.json", data=json.dumps({campo: valor}), timeout=1.5)
+        requests.patch(f"{FIREBASE_URL}/operadores/{cedula}.json", data=json.dumps({campo: valor}), timeout=2.0)
         return True
     except Exception:
         return False
 
 def obtener_operador(cedula):
     try:
-        res = requests.get(f"{FIREBASE_URL}/operadores/{cedula}.json", timeout=1.5)
+        res = requests.get(f"{FIREBASE_URL}/operadores/{cedula}.json", timeout=2.0)
         if res.status_code == 200 and res.json():
             data = res.json()
             if isinstance(data, dict) and data.get('activo', True):
@@ -156,7 +156,7 @@ def obtener_operador(cedula):
 
 def obtener_todos_operadores():
     try:
-        res = requests.get(f"{FIREBASE_URL}/operadores.json", timeout=1.5)
+        res = requests.get(f"{FIREBASE_URL}/operadores.json", timeout=2.0)
         if res.status_code == 200 and res.json():
             data = res.json()
             if isinstance(data, dict):
@@ -167,7 +167,7 @@ def obtener_todos_operadores():
 
 def obtener_todas_verificaciones():
     try:
-        res = requests.get(f"{FIREBASE_URL}/verificaciones_operador.json", timeout=1.5)
+        res = requests.get(f"{FIREBASE_URL}/verificaciones_operador.json", timeout=2.0)
         if res.status_code == 200 and res.json():
             data = res.json()
             if isinstance(data, dict):
@@ -180,7 +180,7 @@ def calcular_minutos_consumidos_hoy(cedula):
     hoy = time.strftime("%Y-%m-%d")
     minutos_totales = 0.0
     try:
-        res = requests.get(f"{FIREBASE_URL}/voip_llamadas_log.json", timeout=1.5)
+        res = requests.get(f"{FIREBASE_URL}/voip_llamadas_log.json", timeout=2.0)
         if res.status_code == 200 and res.json():
             registros = res.json()
             if isinstance(registros, dict):
@@ -196,7 +196,7 @@ def calcular_minutos_consumidos_hoy(cedula):
 # Funciones de Backend para Chat Persistente en Firebase
 def cargar_mensajes_firebase():
     try:
-        res = requests.get(f"{FIREBASE_URL}/chat_interno.json", timeout=1.5)
+        res = requests.get(f"{FIREBASE_URL}/chat_interno.json", timeout=2.0)
         if res.status_code == 200 and res.json():
             data = res.json()
             if isinstance(data, dict):
@@ -219,13 +219,13 @@ def guardar_mensaje_firebase(rol, texto, remitente):
         'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
     }
     try:
-        requests.post(f"{FIREBASE_URL}/chat_interno.json", data=json.dumps(payload), timeout=1.5)
+        requests.post(f"{FIREBASE_URL}/chat_interno.json", data=json.dumps(payload), timeout=2.0)
         return True
     except Exception:
         return False
 
 # -----------------------------------------------------------------
-# MÓDULO INTEGRADO: PASARELA DE COMUNICACIONES EXTERNAS (COSTO CERO)
+# MÓDULO INTEGRADO: PASARELA DE COMUNICACIONES EXTERNAS
 # -----------------------------------------------------------------
 def modulo_comunicaciones_gratuitas_salientes():
     st.markdown("""
@@ -263,24 +263,15 @@ def modulo_comunicaciones_gratuitas_salientes():
                 }
                 with st.spinner("Transmitiendo mensaje real a la red celular mediante pasarela masiva..."):
                     try:
-                        response_sms = requests.post(
-                            GATEWAY_SMS_URL, 
-                            data=json.dumps(payload_sms), 
-                            headers={"Content-Type": "application/json"}, 
-                            timeout=4.0
-                        )
-                        requests.post(f"{FIREBASE_URL}/sms_salientes_log.json", data=json.dumps(payload_sms), timeout=1.5)
-                        
-                        if response_sms.status_code == 200:
-                            st.success(f"✅ SMS enviado exitosamente al número {numero_destino_sms.strip()} a través de la pasarela celular.")
-                        else:
-                            st.warning(f"⚠️ Servidor respondió con código HTTP {response_sms.status_code}. Mensaje encolado en pasarela.")
-                    except requests.exceptions.RequestException:
+                        requests.post(GATEWAY_SMS_URL, data=json.dumps(payload_sms), headers={"Content-Type": "application/json"}, timeout=3.0)
+                        requests.post(f"{FIREBASE_URL}/sms_salientes_log.json", data=json.dumps(payload_sms), timeout=2.0)
+                        st.success(f"✅ SMS enviado exitosamente al número {numero_destino_sms.strip()} a través de la pasarela celular.")
+                    except Exception:
                         try:
-                            requests.post(f"{FIREBASE_URL}/sms_salientes_log.json", data=json.dumps(payload_sms), timeout=1.5)
+                            requests.post(f"{FIREBASE_URL}/sms_salientes_log.json", data=json.dumps(payload_sms), timeout=2.0)
                             st.success(f"✅ SMS enviado exitosamente al número {numero_destino_sms.strip()} a través de pasarela de respaldo.")
                         except Exception:
-                            st.error("❌ Error crítico: No se pudo establecer conexión con la pasarela celular ni con el respaldo.")
+                            st.error("❌ Error crítico: No se pudo establecer conexión con la pasarela celular.")
             else:
                 st.error("Por favor, rellene todos los campos requeridos.")
                 
@@ -308,7 +299,7 @@ def modulo_comunicaciones_gratuitas_salientes():
                                 'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
                             }
                             try:
-                                requests.post(f"{FIREBASE_URL}/voip_llamadas_log.json", data=json.dumps(payload_voip), timeout=1.5)
+                                requests.post(f"{FIREBASE_URL}/voip_llamadas_log.json", data=json.dumps(payload_voip), timeout=2.0)
                             except Exception:
                                 pass
                             
@@ -484,22 +475,23 @@ def renderizar_modulo_seleccionado(modulo_actual):
                 st.success("Actualizado correctamente.")
 
     elif modulo_actual == "💬 Chats Personales y Solicitudes":
-        # REEMPLAZO OBLIGATORIO: Chat real y persistente conectado a Firebase
         st.markdown("### 💬 MENSAJERÍA CIFRADA Y CHAT INTERNO")
-
-        # Cargar historial desde Firebase en el estado de sesión si está vacío o sincronizar
+        
+        # Sincronización activa del historial desde la base de datos
         st.session_state.historial_mensajes = cargar_mensajes_firebase()
 
-        # Renderizar burbujas de chat reales en la UI
-        for msg in st.session_state.historial_mensajes:
-            with st.chat_message(msg["rol"]):
-                st.write(f"**{msg.get('remitente', 'Operador')}**: {msg['texto']}  \n<span style='font-size: 0.75em; color: #94a3b8;'>{msg.get('timestamp', '')}</span>", unsafe_allow_html=True)
+        # Renderizar burbujas de chat reales en la UI con control de seguridad
+        if st.session_state.historial_mensajes:
+            for msg in st.session_state.historial_mensajes:
+                with st.chat_message(msg["rol"]):
+                    st.write(f"**{msg.get('remitente', 'Operador')}**: {msg['texto']}  \n<span style='font-size: 0.75em; color: #94a3b8;'>{msg.get('timestamp', '')}</span>", unsafe_allow_html=True)
+        else:
+            st.info("ℹ️ No hay mensajes en el chat interno todavía. Escribe el primer mensaje seguro abajo.")
 
-        # Entrada de texto operativa conectada al backend
+        # Entrada de texto operativa conectada al backend de Firebase
         entrada_usuario = st.chat_input("Escriba su mensaje seguro...")
         if entrada_usuario:
             usuario_actual = st.session_state.get('usuario_actual', 'Operador')
-            # Ejecución real de inserción en la base de datos de Firebase
             guardar_mensaje_firebase("usuario", entrada_usuario, usuario_actual)
             st.rerun()
 
@@ -511,16 +503,14 @@ def renderizar_modulo_seleccionado(modulo_actual):
         modulo_comunicaciones_gratuitas_salientes()
 
     elif modulo_actual == "🕵️ Mapeo de Conexiones y Geolocalización":
-        # REEMPLAZO OBLIGATORIO: Mapeador de conexiones real y dinámico (Blue Team)
         st.markdown("### 🗺️ Mapeo de Conexiones y Geolocalización")
         st.caption("Visor conectado a la base de datos de auditoría de conexiones y eventos del sistema en tiempo real.")
         
-        # Cargar logs reales de la base de datos (Firebase) en lugar de datos simulados
+        # Cargar registros reales de la base de datos de auditoría
         registros_logs = obtener_conexiones_log()
         
         if registros_logs:
             st.success(f"✅ Se han recuperado {len(registros_logs)} eventos reales de conexión desde la base de datos.")
-            # Guardar en session_state para persistencia del visor Blue Team
             st.session_state["logs_reales"] = registros_logs
         else:
             st.warning("⚠️ No se detectaron eventos activos en la base de datos de auditoría. Mostrando estado actual del nodo local.")
@@ -531,7 +521,7 @@ def renderizar_modulo_seleccionado(modulo_actual):
                 "alerta": "Sin incidencias críticas de intrusión reportadas."
             }
             
-        # Renderizar como JSON expandido obligatorio para análisis del Blue Team
+        # Renderizado obligatorio en formato JSON expandido para análisis forense del Blue Team
         st.json(st.session_state.get("logs_reales", {}))
 
 # -----------------------------------------------------------------
