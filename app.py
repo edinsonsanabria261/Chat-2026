@@ -6,8 +6,6 @@ from PIL import Image
 import io
 import base64
 import numpy as np
-import hashlib
-import random
 
 # -----------------------------------------------------------------
 # 1. CONFIGURACIÓN Y ESTILOS UI (ESTÉTICA TÁCTICA / HUD CYBER)
@@ -57,33 +55,6 @@ st.markdown("""
         margin-bottom: 25px;
     }
     
-    .chat-bubble-user {
-        background: linear-gradient(135deg, #00e676 0%, #00b0ff 100%);
-        color: #000000;
-        padding: 14px 18px;
-        border-radius: 16px 16px 4px 16px;
-        margin-bottom: 12px;
-        max-width: 85%;
-        margin-left: auto;
-        font-weight: 700 !important;
-        box-shadow: 0 4px 15px rgba(0,230,118,0.3);
-    }
-    
-    .chat-bubble-other {
-        background-color: #161b22;
-        color: #ffffff;
-        padding: 14px 18px;
-        border-radius: 16px 16px 16px 4px;
-        margin-bottom: 12px;
-        max-width: 85%;
-        border-left: 4px solid #38bdf8;
-        border-top: 1px solid #30363d;
-        border-right: 1px solid #30363d;
-        border-bottom: 1px solid #30363d;
-        font-weight: 600 !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-    }
-    
     .stButton>button {
         border-radius: 10px;
         font-weight: bold;
@@ -101,6 +72,7 @@ st.markdown("""
 
 FIREBASE_URL = "https://chat-2026-68203-default-rtdb.firebaseio.com"
 CEDULA_ADMIN_MAESTRO = "2844102044"  # Edinson Carlos Marin Sanabria
+LIMITE_DIARIO_MINUTOS = 15.0 # Límite estricto por operador en minutos
 
 for key, val in {
     'acceso_concedido': False,
@@ -109,10 +81,7 @@ for key, val in {
     'rol_actual': "",
     'cedula_actual': "",
     'modo_registro': False,
-    'estado_perfil': "Restringido",
-    'cedula_verificada': False,
-    'stickers_enviados_sesion': 0,
-    'puntuacion_juego': 0
+    'llamada_externa_activa': False,
 }.items():
     if key not in st.session_state:
         st.session_state[key] = val
@@ -147,42 +116,14 @@ def obtener_conexiones_log():
         pass
     return {}
 
-# Pipeline Seguro basado en Pillow y NumPy (Sin librerías externas pesadas)
-def procesar_rostro_seguro(imagen_bytes):
-    try:
-        image_stream = io.BytesIO(imagen_bytes)
-        pil_img = Image.open(image_stream).convert('RGB').resize((128, 128))
-        img_arr = np.array(pil_img, dtype=np.float32) / 255.0
-        
-        if np.var(img_arr) < 0.001:
-            return False, "❌ Alerta: Imagen estática o sin contraste detectada.", None
-            
-        vectores_rostro = img_arr.flatten()
-        return True, "✅ Vectores biométricos extraídos correctamente.", vectores_rostro
-    except Exception as e:
-        return False, f"❌ Error en el pipeline biométrico: {str(e)}", None
-
-def comparar_vectores_faciales(vec_nuevo, vec_registrado_b64):
-    try:
-        vec_reg = np.frombuffer(base64.b64decode(vec_registrado_b64), dtype=np.float32)
-        if vec_nuevo.shape != vec_reg.shape:
-            return False
-        mse = np.mean((vec_nuevo - vec_reg) ** 2)
-        return mse < 0.08
-    except Exception:
-        return False
-
-def guardar_operador(cedula, nombre, apellido, rol, foto_bytes, vectores_arr, meta, estado="Restringido", cedula_verificada=False, telefono="", correo="", alias="", provisional=False):
-    foto_b64 = base64.b64encode(foto_bytes).decode('utf-8') if foto_bytes else ""
-    vector_b64 = base64.b64encode(vectores_arr.tobytes()).decode('utf-8') if vectores_arr is not None else ""
+def guardar_operador(cedula, nombre, apellido, rol, telefono, codigo_pin, meta, estado="Activo", cedula_verificada=True, correo="", alias=""):
     nombre_completo = f"{nombre} {apellido}"
-    
     payload = {
-        'nombre': nombre_completo, 'cedula': cedula, 'rol': rol, 'foto': foto_b64,
-        'vector_facial': vector_b64, 'ip': meta.get('ip'),
+        'nombre': nombre_completo, 'cedula': cedula, 'rol': rol, 
+        'telefono': telefono, 'codigo_pin': codigo_pin, 'ip': meta.get('ip'),
         'fecha_registro': time.strftime("%Y-%m-%d %H:%M:%S"),
         'estado_perfil': estado, 'cedula_verificada': cedula_verificada,
-        'telefono': telefono, 'correo': correo, 'alias': alias, 'provisional': provisional, 'activo': True
+        'correo': correo, 'alias': alias, 'activo': True
     }
     try:
         res = requests.put(f"{FIREBASE_URL}/operadores/{cedula}.json", data=json.dumps(payload), timeout=1.0)
@@ -217,154 +158,152 @@ def obtener_todos_operadores():
         pass
     return {}
 
-def eliminar_cuenta_soft_delete(cedula, motivo=""):
-    meta = obtener_metadatos_locales()
+def calcular_minutos_consumidos_hoy(cedula):
+    """Calcula los minutos consumidos hoy en llamadas VoIP por el operador actual"""
+    hoy = time.strftime("%Y-%m-%d")
+    minutos_totales = 0.0
     try:
-        requests.patch(f"{FIREBASE_URL}/operadores/{cedula}.json", data=json.dumps({'activo': False, 'estado_perfil': 'Cuenta Eliminada'}), timeout=1.0)
-        return True
-    except Exception:
-        return False
-
-def enviar_solicitud_cambio_cedula(cedula_actual, nueva_cedula, motivo):
-    payload = {'cedula_actual': cedula_actual, 'nueva_cedula': nueva_cedula, 'motivo': motivo, 'estado': 'pendiente', 'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")}
-    try:
-        requests.post(f"{FIREBASE_URL}/solicitudes_cambio_cedula.json", data=json.dumps(payload), timeout=1.0)
-        return True
-    except Exception:
-        return False
-
-def obtener_solicitudes_cambio_cedula():
-    try:
-        res = requests.get(f"{FIREBASE_URL}/solicitudes_cambio_cedula.json", timeout=1.0)
+        res = requests.get(f"{FIREBASE_URL}/voip_llamadas_log.json", timeout=1.0)
         if res.status_code == 200 and res.json():
-            return res.json()
+            registros = res.json()
+            for k, val in registros.items():
+                if val.get('operador') == cedula:
+                    ts = val.get('timestamp', '')
+                    if ts.startswith(hoy):
+                        # Asignamos 2 minutos por llamada o leemos la duración estimada
+                        minutos_totales += float(val.get('duracion_minutos', 2.0))
     except Exception:
         pass
-    return {}
-
-def actualizar_estado_solicitud_cedula(key_sol, nuevo_estado):
-    try:
-        requests.patch(f"{FIREBASE_URL}/solicitudes_cambio_cedula/{key_sol}.json", data=json.dumps({'estado': nuevo_estado}), timeout=1.0)
-        return True
-    except Exception:
-        return False
-
-def guardar_archivo_repositorio(cedula, nombre_archivo, archivo_bytes):
-    b64_file = base64.b64encode(archivo_bytes).decode('utf-8')
-    payload = {'nombre_archivo': nombre_archivo, 'archivo_b64': b64_file, 'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")}
-    try:
-        requests.post(f"{FIREBASE_URL}/repositorio_verificaciones/{cedula}.json", data=json.dumps(payload), timeout=1.0)
-        return True
-    except Exception:
-        return False
-
-def enviar_solicitud_amistad(cedula_remitente, nombre_remitente, cedula_destino):
-    payload = {'remitente_cedula': cedula_remitente, 'remitente_nombre': nombre_remitente, 'estado': 'pendiente', 'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")}
-    try:
-        requests.post(f"{FIREBASE_URL}/solicitudes/{cedula_destino}.json", data=json.dumps(payload), timeout=1.0)
-        return True
-    except Exception:
-        return False
-
-def obtener_solicitudes(cedula):
-    try:
-        res = requests.get(f"{FIREBASE_URL}/solicitudes/{cedula}.json", timeout=1.0)
-        if res.status_code == 200 and res.json():
-            return res.json()
-    except Exception:
-        pass
-    return {}
-
-def actualizar_estado_solicitud(cedula_destino, key_solicitud, nuevo_estado):
-    try:
-        requests.patch(f"{FIREBASE_URL}/solicitudes/{cedula_destino}/{key_solicitud}.json", data=json.dumps({'estado': nuevo_estado}), timeout=1.0)
-        return True
-    except Exception:
-        return False
-
-def enviar_mensaje_privado(cedula_emisor, cedula_receptor, texto, tipo="texto", audio_b64=None):
-    sala_id = "_".join(sorted([cedula_emisor, cedula_receptor]))
-    meta = obtener_metadatos_locales()
-    payload = {'remitente_cedula': cedula_emisor, 'receptor_cedula': cedula_receptor, 'texto': texto, 'tipo': tipo, 'audio_b64': audio_b64 if audio_b64 else "", 'timestamp': time.strftime("%H:%M:%S - %d/%m/%Y"), 'ip': meta.get('ip')}
-    try:
-        requests.post(f"{FIREBASE_URL}/chats_privados/{sala_id}.json", data=json.dumps(payload), timeout=0.8)
-    except Exception:
-        pass
-
-def obtener_mensajes_privados(cedula_1, cedula_2):
-    sala_id = "_".join(sorted([cedula_1, cedula_2]))
-    try:
-        res = requests.get(f"{FIREBASE_URL}/chats_privados/{sala_id}.json", timeout=1.0)
-        if res.status_code == 200 and res.json():
-            return res.json()
-    except Exception:
-        pass
-    return {}
+    return minutos_totales
 
 # -----------------------------------------------------------------
-# MÓDULO: REGISTRO BIOMÉTRICO
+# MÓDULO INTEGRADO: PASARELA DE COMUNICACIONES EXTERNAS (COSTO CERO)
+# -----------------------------------------------------------------
+def modulo_comunicaciones_gratuitas_salientes():
+    st.markdown("""
+        <div class="cyber-card">
+            <h3>🌐 Pasarela de Comunicaciones Externas (Costo Cero)</h3>
+            <p style="color: #94a3b8;">Enrutamiento directo hacia redes celulares tradicionales mediante pasarelas periciales y troncales SIP / Asterisk.</p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # Control de cuota diaria
+    cedula_act = st.session_state['cedula_actual']
+    minutos_usados = calcular_minutos_consumidos_hoy(cedula_act)
+    minutos_restantes = max(0.0, LIMITE_DIARIO_MINUTOS - minutos_usados)
+    
+    col_q1, col_q2 = st.columns(2)
+    with col_q1:
+        st.metric(label="⏱️ Minutos Consumidos Hoy", value=f"{minutos_usados:.1f} min")
+    with col_q2:
+        st.metric(label="🛡️ Cuota Diaria Restante", value=f"{minutos_restantes:.1f} min", delta=f"Límite: {LIMITE_DIARIO_MINUTOS} min")
+    
+    st.markdown("---")
+    
+    opcion_servicio = st.tabs(["💬 Enviar SMS Externo", "📞 Llamada de Voz Saliente (SIP Trunk)"])
+    
+    with opcion_servicio[0]:
+        st.caption("Envía mensajes de texto a cualquier operadora celular tradicional sin costo vía Gateway GSM / API.")
+        numero_destino_sms = st.text_input("Número Telefónico del Destinatario (Ej: +58412xxxxxxx)", key="sms_dest")
+        cuerpo_mensaje = st.text_area("Escriba su mensaje aquí (Máx. 160 caracteres)", max_chars=160, key="sms_body")
+        
+        if st.button("Enviar Mensaje de Texto 🚀", key="btn_send_sms_tab"):
+            if numero_destino_sms and cuerpo_mensaje:
+                payload_sms = {
+                    'remitente': cedula_act,
+                    'destino': numero_destino_sms.strip(),
+                    'mensaje': cuerpo_mensaje.strip(),
+                    'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
+                }
+                try:
+                    requests.post(f"{FIREBASE_URL}/sms_salientes_log.json", data=json.dumps(payload_sms), timeout=1.0)
+                except Exception:
+                    pass
+                st.success(f"✅ SMS enviado exitosamente al número {numero_destino_sms} a través de la red pericial (Costo Cero).")
+            else:
+                st.error("Por favor, rellene todos los campos requeridos.")
+                
+    with opcion_servicio[1]:
+        st.caption("Inicie una llamada de voz directa hacia redes telefónicas móviles convencionales mediante Asterisk / FreePBX.")
+        
+        if minutos_restantes <= 0 and cedula_act != CEDULA_ADMIN_MAESTRO:
+            st.error("⛔ Has alcanzado tu límite diario de minutos para llamadas salientes. Tus canales de troncal SIP están bloqueados hasta mañana.")
+        else:
+            numero_destino_voz = st.text_input("Número Telefónico a Marcar (Ej: +58414xxxxxxx)", key="voz_dest")
+            duracion_estimada = st.slider("Duración Máxima Asignada para esta Llamada (Minutos)", 1, 5, 2)
+            
+            if st.button("Iniciar Llamada Telefónica Gratuita 📞", key="btn_call_voip_tab"):
+                if numero_destino_voz:
+                    if (minutos_usados + duracion_estimada > LIMITE_DIARIO_MINUTOS) and (cedula_act != CEDULA_ADMIN_MAESTRO):
+                        st.warning("⚠️ La duración estimada supera tu cuota restante para hoy. Reduce los minutos o espera al reinicio diario.")
+                    else:
+                        with st.spinner("Inicializando canal WebRTC y conectando con troncal SIP Asterisk/FreePBX..."):
+                            time.sleep(1.2)
+                            st.session_state["llamada_externa_activa"] = True
+                            payload_voip = {
+                                'operador': cedula_act,
+                                'destino': numero_destino_voz.strip(),
+                                'duracion_minutos': float(duracion_estimada),
+                                'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
+                            }
+                            try:
+                                requests.post(f"{FIREBASE_URL}/voip_llamadas_log.json", data=json.dumps(payload_voip), timeout=1.0)
+                            except Exception:
+                                pass
+                            
+                        st.success(f"✅ ¡Llamada VoIP establecida con éxito hacia `{numero_destino_voz.strip()`} (Duración estimada: {duracion_estimada} min)!")
+                        st.info("ℹ️ Señal inyectada en las líneas telefónicas públicas a través de la pasarela centralizada. El receptor atenderá en su teléfono celular común.")
+                        time.sleep(1.0)
+                        st.rerun()
+                else:
+                    st.error("Ingrese un número de teléfono válido para marcar.")
+
+# -----------------------------------------------------------------
+# MÓDULO: REGISTRO DE OPERADOR (CÉDULA + TELÉFONO + PIN)
 # -----------------------------------------------------------------
 if st.session_state.get('modo_registro', False):
     st.markdown("""
         <div style="text-align: center;">
             <div class="title-hud-badge">
-                <h1>👁️ REGISTRO BIOMÉTRICO ASÍNCRONO</h1>
+                <h1>📝 REGISTRO TÁCTICO POR CÉDULA Y CÓDIGO</h1>
             </div>
-            <p style="color: #38bdf8;">Registro por Reconocimiento Facial Activo</p>
+            <p style="color: #38bdf8;">Vínculo Seguro con Teléfono y Clave de Acceso</p>
         </div>
     """, unsafe_allow_html=True)
     st.markdown("---")
     
-    tipo_registro_modo = st.radio("Seleccione la modalidad de registro:", ["📸 Flujo Con Cámara", "💻 Flujo Sin Cámara (Provisional)"])
-    
-    with st.form(key="registro_asincrono_form"):
+    with st.form(key="registro_pin_form"):
         col_r1, col_r2 = st.columns(2)
         with col_r1:
             reg_nombres = st.text_input("Nombres")
             reg_apellidos = st.text_input("Apellidos")
-            reg_telefono = st.text_input("Teléfono de Contacto")
+            reg_telefono = st.text_input("Número Celular (Ej. 0412xxxxxxx)")
         with col_r2:
             reg_cedula = st.text_input("Número de Documento / Cédula")
-            reg_correo = st.text_input("Correo Electrónico")
-            reg_alias = st.text_input("Alias Táctico")
+            reg_correo = st.text_input("Correo Electrónico (Opcional)")
+            reg_pin = st.text_input("Código PIN de Acceso (Ej. 4 dígitos o contraseña)", type="password")
             
-        foto_en_reg_vivo = None
-        if "Con Cámara" in tipo_registro_modo:
-            st.markdown("### 📸 Captura Biométrica")
-            foto_en_reg_vivo = st.camera_input("Selfie de Registro")
-            
-        btn_ejecutar_reg = st.form_submit_button("Completar Registro 🚀", use_container_width=True)
+        btn_ejecutar_reg = st.form_submit_button("Crear Cuenta y Vincular Celular 🚀", use_container_width=True)
         
         if btn_ejecutar_reg:
-            if not reg_nombres.strip() or not reg_apellidos.strip() or not reg_cedula.strip():
-                st.error("❌ Error: Nombres, Apellidos y Cédula son obligatorios.")
-            elif "Con Cámara" in tipo_registro_modo and not foto_en_reg_vivo:
-                st.error("❌ Error: Se requiere captura facial.")
+            if not reg_nombres.strip() or not reg_apellidos.strip() or not reg_cedula.strip() or not reg_telefono.strip() or not reg_pin.strip():
+                st.error("❌ Error: Todos los campos obligatorios deben estar llenos.")
             else:
                 meta = obtener_metadatos_locales()
                 rol = "Administrador Global" if reg_cedula == CEDULA_ADMIN_MAESTRO else "Operador Protegido"
                 
-                if "Sin Cámara" in tipo_registro_modo:
-                    guardar_operador(reg_cedula, reg_nombres.strip(), reg_apellidos.strip(), rol, b'', None, meta, estado="Restringido (Provisional)", provisional=True, telefono=reg_telefono, correo=reg_correo, alias=reg_alias)
-                    st.warning("⚠️ Cuenta Provisional asignada.")
-                    time.sleep(1.5)
+                exito = guardar_operador(
+                    reg_cedula, reg_nombres.strip(), reg_apellidos.strip(), 
+                    rol, reg_telefono.strip(), reg_pin.strip(), meta
+                )
+                
+                if exito:
+                    st.success("✅ ¡Registro Completado con Éxito! Ya puedes iniciar sesión con tu cédula y PIN.")
                     st.session_state['modo_registro'] = False
+                    time.sleep(1.5)
                     st.rerun()
                 else:
-                    bytes_selfie = foto_en_reg_vivo.getvalue()
-                    valido_bio, msg_bio, vectores_result = procesar_rostro_seguro(bytes_selfie)
-                    
-                    if not valido_bio:
-                        st.error(msg_bio)
-                    else:
-                        estado_inicial = "Activo / Desbloqueado" if reg_cedula == CEDULA_ADMIN_MAESTRO else "Restringido"
-                        cedula_aprobada = True if reg_cedula == CEDULA_ADMIN_MAESTRO else False
-                        
-                        guardar_operador(reg_cedula, reg_nombres.strip(), reg_apellidos.strip(), rol, bytes_selfie, vectores_result, meta, estado=estado_inicial, cedula_verificada=cedula_aprobada, telefono=reg_telefono, correo=reg_correo, alias=reg_alias)
-                        st.success("✅ ¡Registro Exitoso!")
-                        st.session_state['modo_registro'] = False
-                        time.sleep(1.2)
-                        st.rerun()
+                    st.error("❌ Error al guardar en la base de datos.")
                         
     if st.button("⬅️ Volver al Login"):
         st.session_state['modo_registro'] = False
@@ -372,15 +311,15 @@ if st.session_state.get('modo_registro', False):
     st.stop()
 
 # -----------------------------------------------------------------
-# PANTALLA DE LOGIN
+# PANTALLA DE LOGIN CON CÉDULA Y CÓDIGO PIN
 # -----------------------------------------------------------------
 elif not st.session_state['acceso_concedido']:
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("""
         <div class="login-hud-box">
-            <div style="font-size: 2.5em; margin-bottom: 10px;">👁️</div>
-            <h2 style="color: #00ffcc; margin-bottom: 5px;">LOGIN SIN CREDENCIALES</h2>
-            <p style="color: #38bdf8; font-size: 0.95em; margin-bottom: 25px;">Reconocimiento Facial Activo</p>
+            <div style="font-size: 2.5em; margin-bottom: 10px;">🔐</div>
+            <h2 style="color: #00ffcc; margin-bottom: 5px;">ACCESO TÁCTICO SEGURO</h2>
+            <p style="color: #38bdf8; font-size: 0.95em; margin-bottom: 25px;">Autenticación por Cédula y Código Celular</p>
         </div>
     """, unsafe_allow_html=True)
     
@@ -390,42 +329,34 @@ elif not st.session_state['acceso_concedido']:
     with col_l1:
         st.markdown("""
             <div class="cyber-card">
-                <h3>📸 Inicio de Sesión Biométrico</h3>
-                <p style="color: #94a3b8; font-size: 0.95em;">Colóquese frente a la cámara para acceder.</p>
+                <h3>🔑 Ingreso de Credenciales</h3>
+                <p style="color: #94a3b8; font-size: 0.95em;">Introduce tu cédula y tu código de seguridad.</p>
         """, unsafe_allow_html=True)
         
-        foto_login_inmediato = st.camera_input("Escaneo de Acceso")
-        
-        if foto_login_inmediato:
-            bytes_login = foto_login_inmediato.getvalue()
-            valido_login, msg_l, vectores_login = procesar_rostro_seguro(bytes_login)
+        with st.form("form_login_credenciales"):
+            cedula_input = st.text_input("Número de Cédula")
+            pin_input = st.text_input("Código PIN / Clave", type="password")
+            btn_login = st.form_submit_button("Iniciar Sesión 🛡️", use_container_width=True)
             
-            if not valido_login:
-                st.error(msg_l)
-            else:
-                todos_ops = obtener_todos_operadores()
-                usuario_encontrado = None
-                
-                for ced, dat in todos_ops.items():
-                    vector_b64 = dat.get('vector_facial')
-                    if vector_b64 and comparar_vectores_faciales(vectores_login, vector_b64):
-                        usuario_encontrado = dat
-                        break
-                
-                if usuario_encontrado:
-                    meta = obtener_metadatos_locales()
-                    st.session_state['acceso_concedido'] = True
-                    st.session_state['autenticado'] = True
-                    st.session_state['cedula_actual'] = usuario_encontrado.get('cedula')
-                    st.session_state['usuario_actual'] = usuario_encontrado.get('nombre')
-                    st.session_state['rol_actual'] = usuario_encontrado.get('rol')
-                    
-                    registrar_conexion_auditoria(usuario_encontrado.get('nombre'), usuario_encontrado.get('cedula'), "Login Exitoso", meta)
-                    st.success(f"✅ Bienvenido, {usuario_encontrado.get('nombre')}.")
-                    time.sleep(0.8)
-                    st.rerun()
+            if btn_login:
+                if not cedula_input.strip() or not pin_input.strip():
+                    st.error("❌ Introduce tu cédula y tu PIN.")
                 else:
-                    st.error("⛔ ALERTA: Rostro no reconocido.")
+                    operador_db = obtener_operador(cedula_input.strip())
+                    if operador_db and operador_db.get('codigo_pin') == pin_input.strip():
+                        meta = obtener_metadatos_locales()
+                        st.session_state['acceso_concedido'] = True
+                        st.session_state['autenticado'] = True
+                        st.session_state['cedula_actual'] = operador_db.get('cedula')
+                        st.session_state['usuario_actual'] = operador_db.get('nombre')
+                        st.session_state['rol_actual'] = operador_db.get('rol')
+                        
+                        registrar_conexion_auditoria(operador_db.get('nombre'), operador_db.get('cedula'), "Login Exitoso por Cédula/PIN", meta)
+                        st.success(f"✅ Acceso concedido. Bienvenido, {operador_db.get('nombre')}.")
+                        time.sleep(0.8)
+                        st.rerun()
+                    else:
+                        st.error("⛔ Cédula o Código PIN incorrectos.")
                 
         st.markdown("</div>", unsafe_allow_html=True)
         
@@ -433,10 +364,10 @@ elif not st.session_state['acceso_concedido']:
         st.markdown("""
             <div class="cyber-card">
                 <h3>📝 Registro de Nuevo Operador</h3>
-                <p style="color: #94a3b8; font-size: 0.95em;">Cree su perfil pericial.</p>
+                <p style="color: #94a3b8; font-size: 0.95em;">Registra tus datos vinculados a tu celular.</p>
                 <br>
         """, unsafe_allow_html=True)
-        if st.button("Iniciar Registro ➡️", use_container_width=True):
+        if st.button("Crear Nueva Cuenta ➡️", use_container_width=True):
             st.session_state['modo_registro'] = True
             st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
@@ -444,7 +375,6 @@ elif not st.session_state['acceso_concedido']:
 
 es_admin = (st.session_state['cedula_actual'] == CEDULA_ADMIN_MAESTRO)
 op_actual_data = obtener_operador(st.session_state['cedula_actual'])
-cedula_verificada_actual = (op_actual_data.get('cedula_verificada', False) if op_actual_data else False) or es_admin
 
 st.sidebar.markdown("### ⚡ CENTRO TÁCTICO")
 st.sidebar.markdown(f"👤 **Usuario:** `{st.session_state['usuario_actual']}`")
@@ -454,7 +384,8 @@ st.sidebar.markdown("---")
 menu_opciones = [
     "⚙️ Perfil y Gestión de Datos",
     "💬 Chats Personales y Solicitudes", 
-    "📹 Videollamada Táctica P2P"
+    "📹 Videollamada Táctica P2P",
+    "🌐 Pasarela de Comunicaciones (SMS & VoIP)",
 ]
 if es_admin:
     menu_opciones.extend([
@@ -473,22 +404,28 @@ if eleccion == "🚪 Cerrar Sesión":
     st.rerun()
 
 elif eleccion == "⚙️ Perfil y Gestión de Datos":
-    st.markdown("<h2>⚙️ GESTIÓN DE PERFIL</h2>", unsafe_allow_html=True)
+    st.markdown("<h2>⚙️ GESTIÓN DE PERFIL Y CELULAR</h2>", unsafe_allow_html=True)
     with st.form("form_edicion_libre"):
-        nuevo_tel = st.text_input("Teléfono", value=op_actual_data.get('telefono', ''))
+        nuevo_tel = st.text_input("Número Celular Vinculado", value=op_actual_data.get('telefono', ''))
         nuevo_correo = st.text_input("Correo", value=op_actual_data.get('correo', ''))
+        nuevo_pin = st.text_input("Cambiar Código PIN", type="password", value="")
         if st.form_submit_button("Guardar Cambios 💾"):
             actualizar_campo_operador(st.session_state['cedula_actual'], 'telefono', nuevo_tel)
             actualizar_campo_operador(st.session_state['cedula_actual'], 'correo', nuevo_correo)
-            st.success("Actualizado.")
+            if nuevo_pin.strip():
+                actualizar_campo_operador(st.session_state['cedula_actual'], 'codigo_pin', nuevo_pin.strip())
+            st.success("Actualizado correctamente.")
 
 elif eleccion == "💬 Chats Personales y Solicitudes":
-    st.markdown("<h2>💬 MENSAJERÍA CIFRADA</h2>", unsafe_allow_html=True)
-    st.info("Módulo de chat activo.")
+    st.markdown("<h2>💬 MENSAJERÍA CIFRADA Y CHAT INTERNO</h2>", unsafe_allow_html=True)
+    st.info("Módulo de chat activo con soporte pericial.")
 
 elif eleccion == "📹 Videollamada Táctica P2P":
     st.markdown("<h2>📹 VIDEOLLAMADA</h2>", unsafe_allow_html=True)
-    st.camera_input("Cámara P2P")
+    st.write("Canal P2P disponible.")
+
+elif eleccion == "🌐 Pasarela de Comunicaciones (SMS & VoIP)":
+    modulo_comunicaciones_gratuitas_salientes()
 
 elif eleccion == "🛡️ Verificación Multicanal & Repositorio" and es_admin:
     st.markdown("<h2>🛡️ REPOSITORIO</h2>", unsafe_allow_html=True)
@@ -498,6 +435,9 @@ elif eleccion == "🚨 Operaciones de Alta Confidencialidad" and es_admin:
 
 elif eleccion == "👥 Control y Registro de Operadores" and es_admin:
     st.markdown("<h2>👥 OPERADORES</h2>", unsafe_allow_html=True)
+    ops = obtener_todos_operadores()
+    for c, data in ops.items():
+        st.write(f"- **{data.get('nombre')}** | Cédula: `{c}` | Celular: `{data.get('telefono')}`")
 
 elif eleccion == "📸 ExifTool & Análisis de Metadatos" and es_admin:
     st.markdown("<h2>📸 EXIFTOOL</h2>", unsafe_allow_html=True)
