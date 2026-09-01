@@ -536,7 +536,8 @@ with col_main:
                 
                 if st.button("Iniciar Llamada 📞", key="btn_call_voip_tab"):
                     if numero_destino_voz:
-                        st.success(f"✅ ¡Llamada VoIP establecida hacia `{numero_destino_voz.strip()`}!")
+                        destino_limpio = numero_destino_voz.strip()
+                        st.success(f"✅ ¡Llamada VoIP establecida hacia `{destino_limpio}`!")
                         webrtc_js_component = f"""
                         <div style="background: #161b22; padding: 15px; border-radius: 10px; border: 1px solid #00a884; text-align: center;">
                             <p style="color: #00a884; font-weight: bold;">🎙️ Canal de Audio WebRTC Activo</p>
