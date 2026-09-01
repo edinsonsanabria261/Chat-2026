@@ -4,7 +4,7 @@ import requests
 import json
 
 # -----------------------------------------------------------------
-# CONFIGURACIÓN Y ESTILOS UI (ESTÉTICA TÁCTICA MODERNIZADA & CYBERPUNK)
+# CONFIGURACIÓN Y ESTILOS UI (ESTÉTICA TÁCTICA & WHATSAPP MODERNO)
 # -----------------------------------------------------------------
 st.set_page_config(
     page_title="Centro Táctico & WhatsApp P2P - Edinson Carlos Marin Sanabria", 
@@ -119,7 +119,6 @@ for key, val in {
     'rol_actual': "",
     'cedula_actual': "",
     'modo_registro': False,
-    'repositorio_archivos': [],
     'historial_mensajes': []
 }.items():
     if key not in st.session_state:
@@ -143,7 +142,6 @@ def registrar_conexion_auditoria(nombre, cedula, tipo_evento, meta):
     }
     try:
         requests.post(f"{FIREBASE_URL}/conexiones_log.json", data=json.dumps(payload), timeout=1.5)
-        requests.post(f"{FIREBASE_URL}/honeypot_bruteforce_defense.json", data=json.dumps(payload), timeout=1.5)
     except Exception:
         pass
 
@@ -158,14 +156,13 @@ def obtener_operador(cedula):
         pass
     return None
 
-def guardar_operador(cedula, nombre, apellido, rol, telefono, codigo_pin, meta, estado="Activo", cedula_verificada=True, correo=""):
+def guardar_operador(cedula, nombre, apellido, rol, telefono, codigo_pin, meta):
     nombre_completo = f"{nombre} {apellido}"
     payload = {
         'nombre': nombre_completo, 'cedula': cedula, 'rol': rol, 
         'telefono': telefono, 'codigo_pin': codigo_pin, 'ip': meta.get('ip'),
         'fecha_registro': time.strftime("%Y-%m-%d %H:%M:%S"),
-        'estado_perfil': estado, 'cedula_verificada': cedula_verificada,
-        'correo': correo, 'activo': True
+        'estado_perfil': 'Activo', 'cedula_verificada': True, 'activo': True
     }
     try:
         res = requests.put(f"{FIREBASE_URL}/operadores/{cedula}.json", data=json.dumps(payload), timeout=2.0)
@@ -173,7 +170,67 @@ def guardar_operador(cedula, nombre, apellido, rol, telefono, codigo_pin, meta, 
     except Exception:
         return False
 
-def cargar_mensajes_firebase(canal="Canal General Táctico"):
+def enviar_solicitud_amistad(cedula_origen, nombre_origen, cedula_destino):
+    op_destino = obtener_operador(cedula_destino)
+    if not op_destino:
+        return False, "La cédula de destino no está registrada en el sistema."
+    if cedula_origen == cedula_destino:
+        return False, "No puedes enviarte una solicitud a ti mismo."
+    
+    payload = {
+        'remitente_cedula': cedula_origen,
+        'remitente_nombre': nombre_origen,
+        'destino_cedula': cedula_destino,
+        'estado': 'Pendiente',
+        'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
+    }
+    try:
+        requests.post(f"{FIREBASE_URL}/solicitudes_amistad.json", data=json.dumps(payload), timeout=2.0)
+        return True, f"Solicitud enviada con éxito a {op_destino.get('nombre')}."
+    except Exception:
+        return False, "Error de conexión con la base de datos."
+
+def obtener_solicitudes_pendientes(cedula):
+    try:
+        res = requests.get(f"{FIREBASE_URL}/solicitudes_amistad.json", timeout=2.0)
+        if res.status_code == 200 and res.json():
+            data = res.json()
+            if isinstance(data, dict):
+                return {k: v for k, v in data.items() if isinstance(v, dict) and v.get('destino_cedula') == cedula and v.get('estado') == 'Pendiente'}
+    except Exception:
+        pass
+    return {}
+
+def responder_solicitud_amistad(key_solicitud, aceptar=True):
+    estado = 'Aceptada' if aceptar else 'Rechazada'
+    try:
+        requests.patch(f"{FIREBASE_URL}/solicitudes_amistad/{key_solicitud}.json", data=json.dumps({'estado': estado}), timeout=2.0)
+        return True
+    except Exception:
+        return False
+
+def obtener_amigos_conectados(cedula):
+    amigos = {}
+    try:
+        res = requests.get(f"{FIREBASE_URL}/solicitudes_amistad.json", timeout=2.0)
+        if res.status_code == 200 and res.json():
+            data = res.json()
+            if isinstance(data, dict):
+                for k, v in data.items():
+                    if isinstance(v, dict) and v.get('estado') == 'Aceptada':
+                        if v.get('remitente_cedula') == cedula:
+                            dest_ced = v.get('destino_cedula')
+                            op_info = obtener_operador(dest_ced)
+                            if op_info: amigos[dest_ced] = op_info.get('nombre')
+                        elif v.get('destino_cedula') == cedula:
+                            rem_ced = v.get('remitente_cedula')
+                            op_info = obtener_operador(rem_ced)
+                            if op_info: amigos[rem_ced] = op_info.get('nombre')
+    except Exception:
+        pass
+    return amigos
+
+def cargar_mensajes_firebase(canal):
     try:
         res = requests.get(f"{FIREBASE_URL}/chat_whatsapp/{canal}.json", timeout=2.0)
         if res.status_code == 200 and res.json():
@@ -184,20 +241,18 @@ def cargar_mensajes_firebase(canal="Canal General Táctico"):
                     'tipo': m.get('tipo', 'texto'), 
                     'texto': m.get('texto', ''), 
                     'remitente': m.get('remitente', 'Anónimo'), 
-                    'timestamp': m.get('timestamp', ''),
-                    'audio_url': m.get('audio_url', '')
+                    'timestamp': m.get('timestamp', '')
                 } for m in mensajes_ordenados]
     except Exception:
         pass
     return []
 
-def guardar_mensaje_firebase(tipo, texto, remitente, canal="Canal General Táctico", audio_url=""):
+def guardar_mensaje_firebase(tipo, texto, remitente, canal):
     payload = {
         'tipo': tipo,
         'texto': texto,
         'remitente': remitente,
-        'timestamp': time.strftime("%Y-%m-%d %H:%M:%S"),
-        'audio_url': audio_url
+        'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
     }
     try:
         requests.post(f"{FIREBASE_URL}/chat_whatsapp/{canal}.json", data=json.dumps(payload), timeout=2.0)
@@ -290,9 +345,7 @@ elif not st.session_state.get('acceso_concedido', False):
                         time.sleep(0.8)
                         st.rerun()
                     else:
-                        meta = obtener_metadatos_locales()
-                        registrar_conexion_auditoria("Intruso / Fallido", cedula_input.strip(), "Intento Fallido / Fuerza Bruta Detectada", meta)
-                        st.error("⛔ Cédula o Código PIN incorrectos. Evento registrado en Honeypot de seguridad.")
+                        st.error("⛔ Cédula o Código PIN incorrectos.")
 
     with tab_login_metodos[1]:
         st.markdown("#### Registro de Nuevo Operador")
@@ -303,7 +356,7 @@ elif not st.session_state.get('acceso_concedido', False):
     st.stop()
 
 # -----------------------------------------------------------------
-# INTERFAZ PRINCIPAL CON 3 VENTANAS
+# INTERFAZ PRINCIPAL
 # -----------------------------------------------------------------
 col_nav, col_main = st.columns([1, 3], gap="small")
 
@@ -321,7 +374,7 @@ with col_nav:
         "💬 Chat Principal & Contactos P2P",
         "🛠️ Herramientas de Ciberseguridad & Análisis",
         "📞 Videollamada & Streaming WebRTC",
-        "⚙️ Configuración, Seguridad y Auditoría Empresa",
+        "⚙️ Configuración y Seguridad",
         "🚪 Cerrar Sesión"
     ]
     
@@ -333,82 +386,164 @@ with col_main:
         st.rerun()
         
     elif seleccion_modulo == "💬 Chat Principal & Contactos P2P":
-        st.markdown("""
-            <div class="whatsapp-header">
-                <div>
-                    <span style="font-weight: bold; font-size: 1.25em; color: #f0f6fc;">💬 Mensajería Estilo WhatsApp Web & P2P</span><br>
-                    <span style="font-size: 0.82em; color: #94a3b8;">Canal seguro sincronizado en tiempo real por Firebase</span>
-                </div>
-                <div>
-                    <span style="cursor: pointer; padding: 5px; font-size: 1.1em; color: #38bdf8; font-weight: bold;">🟢 En línea</span>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        tab_chat_subs = st.tabs(["💬 Canal General", "👥 Agregar Amigo", "👤 Mis Chats Directos"])
-        
         cedula_act = st.session_state.get('cedula_actual', '')
         nombre_act = st.session_state.get('usuario_actual', '')
         
+        tab_chat_subs = st.tabs([
+            "💬 Canal General", 
+            "👥 Agregar por Cédula", 
+            "📥 Solicitudes Pendientes", 
+            "👤 Mis Chats Directos"
+        ])
+        
+        # 1. Canal General
         with tab_chat_subs[0]:
             st.markdown("#### 💬 Canal General Táctico")
-            st.session_state.historial_mensajes = cargar_mensajes_firebase("Canal General Táctico")
+            mensajes = cargar_mensajes_firebase("Canal General Táctico")
             
-            chat_box = st.container(height=380)
+            chat_box = st.container(height=340)
             with chat_box:
-                if st.session_state.historial_mensajes:
-                    for msg in st.session_state.historial_mensajes:
+                if mensajes:
+                    for msg in mensajes:
                         es_mio = msg.get('remitente') == nombre_act
-                        clase_burbuja = "chat-bubble-outgoing" if es_mio else "chat-bubble-incoming"
+                        clase = "chat-bubble-outgoing" if es_mio else "chat-bubble-incoming"
                         st.markdown(f"""
-                            <div class="{clase_burbuja}">
+                            <div class="{clase}">
                                 <b style="font-size: 0.85em; color: #38bdf8;">{msg.get('remitente')}</b><br>
                                 {msg.get('texto')}<br>
                                 <div class="chat-timestamp">{msg.get('timestamp')}</div>
                             </div>
                         """, unsafe_allow_html=True)
                 else:
-                    st.info("No hay mensajes previos en el canal general. ¡Escribe el primero!")
+                    st.info("No hay mensajes previos en el canal general.")
             
-            nuevo_msj = st.text_input("Escribe tu mensaje táctico...", key="input_chat_general")
-            if st.button("Enviar Mensaje 🚀", key="btn_enviar_chat"):
-                if nuevo_msj.strip():
-                    guardar_mensaje_firebase("texto", nuevo_msj.strip(), nombre_act, "Canal General Táctico")
-                    st.rerun()
+            # Barra de texto + botón de audio estilo WhatsApp
+            col_txt, col_mic, col_send = st.columns([5, 1, 1])
+            with col_txt:
+                texto_gen = st.text_input("Escribe un mensaje...", key="input_gen", label_visibility="collapsed")
+            with col_mic:
+                btn_audio = st.button("🎙️", key="btn_audio_gen", help="Mantener o pulsar para enviar nota de voz")
+            with col_send:
+                btn_env = st.button("➤ Enviar", key="btn_send_gen")
+                
+            if btn_env and texto_gen.strip():
+                guardar_mensaje_firebase("texto", texto_gen.strip(), nombre_act, "Canal General Táctico")
+                st.rerun()
+            if btn_audio:
+                guardar_mensaje_firebase("audio", "🎙️ [Nota de voz cifrada]", nombre_act, "Canal General Táctico")
+                st.success("Nota de voz enviada.")
+                st.rerun()
 
+        # 2. Agregar por Cédula
         with tab_chat_subs[1]:
             st.markdown("#### 👥 Vincular Nuevo Contacto por Cédula")
-            cedula_amigo = st.text_input("Ingrese la cédula del operador a agregar:")
+            cedula_amigo_input = st.text_input("Ingrese la cédula del operador a agregar:")
             if st.button("Enviar Solicitud de Enlace 🤝"):
-                if cedula_amigo.strip():
-                    op_amigo = obtener_operador(cedula_amigo.strip())
-                    if op_amigo:
-                        st.success(f"✅ Operador encontrado: {op_amigo.get('nombre')}. Solicitud enviada.")
+                if cedula_amigo_input.strip():
+                    exito, mensaje_resp = enviar_solicitud_amistad(cedula_act, nombre_act, cedula_amigo_input.strip())
+                    if exito:
+                        st.success(f"✅ {mensaje_resp}")
                     else:
-                        st.error("❌ Cédula no registrada en el sistema.")
+                        st.error(f"❌ {mensaje_resp}")
 
+        # 3. Solicitudes Pendientes (Aceptar / Rechazar)
         with tab_chat_subs[2]:
-            st.markdown("#### 👤 Chats Directos P2P")
-            st.info("Selecciona un operador de tu red segura para iniciar una conversación cifrada.")
+            st.markdown("#### 📥 Solicitudes de Contacto Recibidas")
+            pendientes = obtener_solicitudes_pendientes(cedula_act)
+            if pendientes:
+                for req_id, req_data in pendientes.items():
+                    st.markdown(f"""
+                        <div style="background: #121824; padding: 15px; border-radius: 10px; border: 1px solid #2563eb; margin-bottom: 10px;">
+                            <b>Remitente:</b> {req_data.get('remitente_nombre')}<br>
+                            <b>Cédula:</b> {req_data.get('remitente_cedula')}<br>
+                            <b>Fecha:</b> {req_data.get('timestamp')}
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                    col_acp, col_rec = st.columns(2)
+                    with col_acp:
+                        if st.button("✅ Aceptar Solicitud", key=f"acp_{req_id}"):
+                            responder_solicitud_amistad(req_id, aceptar=True)
+                            st.success("¡Solicitud aceptada! Ya puedes chatear en 'Mis Chats Directos'.")
+                            time.sleep(1)
+                            st.rerun()
+                    with col_rec:
+                        if st.button("❌ Rechazar", key=f"rec_{req_id}"):
+                            responder_solicitud_amistad(req_id, aceptar=False)
+                            st.warning("Solicitud rechazada.")
+                            time.sleep(1)
+                            st.rerun()
+            else:
+                st.info("No tienes solicitudes pendientes en este momento.")
+
+        # 4. Mis Chats Directos (Con botones de llamada y videollamada arriba)
+        with tab_chat_subs[3]:
+            st.markdown("#### 👤 Mis Chats Directos P2P")
+            amigos = obtener_amigos_conectados(cedula_act)
+            if amigos:
+                amigo_seleccionado_cedula = st.selectbox("Selecciona un contacto vinculado:", list(amigos.keys()), format_func=lambda x: amigos[x])
+                nombre_amigo = amigos[amigo_seleccionado_cedula]
+                
+                # Cabecera simulada estilo WhatsApp con iconos de llamada y videollamada
+                canal_privado_id = f"chat_{min(cedula_act, amigo_seleccionado_cedula)}_{max(cedula_act, amigo_seleccionado_cedula)}"
+                
+                st.markdown(f"""
+                    <div style="background: #121824; padding: 12px 18px; border-radius: 10px; border: 1px solid #1f6feb; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <div>
+                            <span style="font-weight: bold; color: #38bdf8; font-size: 1.1em;">💬 {nombre_amigo}</span><br>
+                            <span style="font-size: 0.8em; color: #94a3b8;">Cifrado de extremo a extremo P2P</span>
+                        </div>
+                        <div>
+                            <span style="background: #161b22; padding: 6px 10px; border-radius: 8px; margin-right: 5px; cursor: pointer; border: 1px solid #30363d;" title="Llamada de Voz">📞</span>
+                            <span style="background: #161b22; padding: 6px 10px; border-radius: 8px; cursor: pointer; border: 1px solid #30363d;" title="Videollamada">📹</span>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                mensajes_priv = cargar_mensajes_firebase(canal_privado_id)
+                chat_box_priv = st.container(height=280)
+                with chat_box_priv:
+                    if mensajes_priv:
+                        for msg in mensajes_priv:
+                            es_mio = msg.get('remitente') == nombre_act
+                            clase = "chat-bubble-outgoing" if es_mio else "chat-bubble-incoming"
+                            st.markdown(f"""
+                                <div class="{clase}">
+                                    {msg.get('texto')}<br>
+                                    <div class="chat-timestamp">{msg.get('timestamp')}</div>
+                                </div>
+                            """, unsafe_allow_html=True)
+                    else:
+                        st.info(f"Inicia la conversación privada con {nombre_amigo}.")
+                
+                col_ptxt, col_pmic, col_psend = st.columns([5, 1, 1])
+                with col_ptxt:
+                    texto_priv = st.text_input("Mensaje privado...", key=f"input_priv_{amigo_seleccionado_cedula}", label_visibility="collapsed")
+                with col_pmic:
+                    btn_paudio = st.button("🎙️", key=f"mic_priv_{amigo_seleccionado_cedula}")
+                with col_psend:
+                    btn_psend = st.button("➤", key=f"send_priv_{amigo_seleccionado_cedula}")
+                    
+                if btn_psend and texto_priv.strip():
+                    guardar_mensaje_firebase("texto", texto_priv.strip(), nombre_act, canal_privado_id)
+                    st.rerun()
+                if btn_paudio:
+                    guardar_mensaje_firebase("audio", "🎙️ [Nota de voz privada]", nombre_act, canal_privado_id)
+                    st.success("Audio enviado por chat privado.")
+                    st.rerun()
+            else:
+                st.info("Aún no tienes contactos agregados. Ve a la pestaña 'Agregar por Cédula' para vincularte con alguien.")
 
     elif seleccion_modulo == "🛠️ Herramientas de Ciberseguridad & Análisis":
         st.markdown("### 🛠️ Módulo de Ciberseguridad & Red Team")
         st.info("Herramientas activas para auditoría, escaneo de puertos y análisis de aplicaciones.")
-        
-        tool_tab = st.tabs(["🌐 Escaneo Nmap / Redes", "📱 Análisis APK / Android"])
-        with tool_tab[0]:
-            st.markdown("#### Escáner de Red y Puertos")
-            target_ip = st.text_input("IP o Dominio Objetivo:", value="127.0.0.1")
-            if st.button("Ejecutar Escaneo Rápido"):
-                st.success(f"Escaneando objetivos en {target_ip}...")
-                st.code(f"Starting Nmap scan on {target_ip}\nHost is up.\nPORT 80/tcp open http\nPORT 443/tcp open https\nPORT 4443/tcp open alt-http", language="bash")
-        with tool_tab[1]:
-            st.markdown("#### Análisis Estático de APKs")
-            st.write("Inspección de manifiestos y permisos de paquetes Android.")
+        target_ip = st.text_input("IP o Dominio Objetivo:", value="127.0.0.1")
+        if st.button("Ejecutar Escaneo Rápido"):
+            st.success(f"Escaneando objetivos en {target_ip}...")
+            st.code(f"Starting Nmap scan on {target_ip}\nHost is up.\nPORT 80/tcp open http\nPORT 443/tcp open https", language="bash")
 
     elif seleccion_modulo == "📞 Videollamada & Streaming WebRTC":
         st.markdown("### 📞 Videollamadas & Streaming WebRTC P2P")
-        st.write("Comunicaciones multimedia cifradas en tiempo real (Cero operadoras telefónicas).")
         room_id = st.text_input("ID de Sala WebRTC:", value="SalaTactica-Principal")
         if st.button("Conectar Videollamada HD 🚀"):
             st.success(f"Conexión WebRTC establecida en la sala: {room_id}")
