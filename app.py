@@ -182,21 +182,59 @@ def obtener_todos_operadores():
         pass
     return {}
 
-def enviar_mensaje_db(remitente, cedula, texto, tipo="texto", audio_b64=None):
-    meta = obtener_metadatos_locales()
+# NUEVAS FUNCIONES PARA SOLICITUDES DE AMISTAD Y CHATS PRIVADOS P2P
+def enviar_solicitud_amistad(cedula_remitente, nombre_remitente, cedula_destino):
     payload = {
-        'remitente': remitente, 'cedula': cedula, 'texto': texto,
-        'tipo': tipo, 'audio_b64': audio_b64 if audio_b64 else "",
-        'timestamp': time.strftime("%H:%M:%S - %d/%m/%Y"), 'ip': meta.get('ip')
+        'remitente_cedula': cedula_remitente,
+        'remitente_nombre': nombre_remitente,
+        'estado': 'pendiente',
+        'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
     }
     try:
-        requests.post(f"{FIREBASE_URL}/mensajes.json", data=json.dumps(payload), timeout=0.8)
+        # Guardar en la bandeja de notificaciones/solicitudes del usuario destino
+        requests.post(f"{FIREBASE_URL}/solicitudes/{cedula_destino}.json", data=json.dumps(payload), timeout=1.0)
+        return True
+    except Exception:
+        return False
+
+def obtener_solicitudes(cedula):
+    try:
+        res = requests.get(f"{FIREBASE_URL}/solicitudes/{cedula}.json", timeout=1.0)
+        if res.status_code == 200 and res.json():
+            return res.json()
+    except Exception:
+        pass
+    return {}
+
+def actualizar_estado_solicitud(cedula_destino, key_solicitud, nuevo_estado):
+    try:
+        requests.patch(f"{FIREBASE_URL}/solicitudes/{cedula_destino}/{key_solicitud}.json", data=json.dumps({'estado': nuevo_estado}), timeout=1.0)
+        return True
+    except Exception:
+        return False
+
+def enviar_mensaje_privado(cedula_emisor, cedula_receptor, texto, tipo="texto", audio_b64=None):
+    # Generar un ID de sala único ordenando las cédulas alfabéticamente para que ambos compartan el mismo chat
+    sala_id = "_".join(sorted([cedula_emisor, cedula_receptor]))
+    meta = obtener_metadatos_locales()
+    payload = {
+        'remitente_cedula': cedula_emisor,
+        'receptor_cedula': cedula_receptor,
+        'texto': texto,
+        'tipo': tipo,
+        'audio_b64': audio_b64 if audio_b64 else "",
+        'timestamp': time.strftime("%H:%M:%S - %d/%m/%Y"),
+        'ip': meta.get('ip')
+    }
+    try:
+        requests.post(f"{FIREBASE_URL}/chats_privados/{sala_id}.json", data=json.dumps(payload), timeout=0.8)
     except Exception:
         pass
 
-def obtener_mensajes():
+def obtener_mensajes_privados(cedula_1, cedula_2):
+    sala_id = "_".join(sorted([cedula_1, cedula_2]))
     try:
-        res = requests.get(f"{FIREBASE_URL}/mensajes.json", timeout=1.0)
+        res = requests.get(f"{FIREBASE_URL}/chats_privados/{sala_id}.json", timeout=1.0)
         if res.status_code == 200 and res.json():
             return res.json()
     except Exception:
@@ -204,20 +242,20 @@ def obtener_mensajes():
     return {}
 
 # -----------------------------------------------------------------
-# 3. CONTROL DE FLUJO Y REGISTRO (CON LLAVE MAESTRA CLARA)
+# 3. CONTROL DE FLUJO Y REGISTRO (CON VALIDACIÓN ESTRICTA DE NOMBRE Y APELLIDO)
 # -----------------------------------------------------------------
 if st.session_state.get('modo_registro', False):
     st.title("📝 Registro Oficial de Nuevo Operador / Personal")
-    st.markdown("Complete sus datos personales y realice la captura biométrica facial obligatoria.")
+    st.markdown("Complete obligatoriamente su **Nombre y Apellido**, Cédula y realice la captura biométrica facial.")
     st.info("💡 **Nota:** La llave de autorización para el registro es: `VIP-2026`")
     
     with st.form(key="registro_form"):
         col_r1, col_r2 = st.columns(2)
         with col_r1:
-            reg_nombres = st.text_input("Nombres Completo")
-            reg_apellidos = st.text_input("Apellidos Completo")
+            reg_nombres = st.text_input("Nombres (Obligatorio)")
+            reg_apellidos = st.text_input("Apellidos (Obligatorio)")
         with col_r2:
-            reg_cedula = st.text_input("Cédula de Identidad (ID)")
+            reg_cedula = st.text_input("Cédula de Identidad (ID - Obligatorio)")
             reg_llave = st.text_input("Llave de Autorización", type="password", placeholder="Ingrese VIP-2026")
             
         st.markdown("### 📸 Captura Biométrica Facial en Vivo")
@@ -226,8 +264,8 @@ if st.session_state.get('modo_registro', False):
         btn_registrar_user = st.form_submit_button("Completar Registro y Validar Biometría", use_container_width=True)
         
         if btn_registrar_user:
-            if not reg_nombres or not reg_apellidos or not reg_cedula or not reg_foto:
-                st.error("❌ Todos los campos son obligatorios.")
+            if not reg_nombres.strip() or not reg_apellidos.strip() or not reg_cedula.strip() or not reg_foto:
+                st.error("❌ Error: Todas las cuentas deben tener obligatoriamente Nombre, Apellido y Cédula.")
             elif not hmac.compare_digest(reg_llave, LLAVE_MAESTRA) and reg_llave != "VIP-2026-SECURE":
                 st.error("❌ Llave de autorización inválida. Ingrese VIP-2026.")
             else:
@@ -236,7 +274,7 @@ if st.session_state.get('modo_registro', False):
                 if valido:
                     meta = obtener_metadatos_locales()
                     rol = "Administrador Global" if reg_cedula == CEDULA_ADMIN_MAESTRO else "Operador Protegido"
-                    guardar_operador(reg_cedula, reg_nombres, reg_apellidos, rol, bytes_img, meta)
+                    guardar_operador(reg_cedula, reg_nombres.strip(), reg_apellidos.strip(), rol, bytes_img, meta)
                     
                     st.success("✅ ¡Registro biométrico exitoso! Ya puede iniciar sesión.")
                     st.session_state['modo_registro'] = False
@@ -344,7 +382,10 @@ st.sidebar.markdown(f"🆔 **Cédula:** `{st.session_state['cedula_actual']}`")
 st.sidebar.markdown(f"🛡️ **Rango:** `{st.session_state['rol_actual']}`")
 st.sidebar.markdown("---")
 
-menu_opciones = ["💬 Canal de Chat en Vivo y Audios", "📹 Videollamada Táctica P2P"]
+menu_opciones = [
+    "💬 Chats Personales y Solicitudes (Estilo WhatsApp)", 
+    "📹 Videollamada Táctica P2P"
+]
 if es_admin:
     menu_opciones.extend([
         "👥 Control y Registro de Operadores",
@@ -364,65 +405,160 @@ if eleccion == "🚪 Cerrar Sesión":
     st.rerun()
 
 # -----------------------------------------------------------------
-# MÓDULO 1: CHAT EN TIEMPO REAL CON NOTAS DE VOZ Y AUTO-REFRESCO
+# MÓDULO 1: CHATS PERSONALES Y SOLICITUDES (ESTILO WHATSAPP)
 # -----------------------------------------------------------------
-elif eleccion == "💬 Canal de Chat en Vivo y Audios":
-    st.title("💬 Canal de Mensajería en Vivo y Notas de Voz")
-    st.markdown("Comunicaciones instantáneas tipo WhatsApp con sincronización automática y envío de audio.")
+elif eleccion == "💬 Chats Personales y Solicitudes (Estilo WhatsApp)":
+    st.title("💬 Centro de Solicitudes y Chats Personales")
+    st.markdown("Gestione sus solicitudes de amistad y converse de forma privada y segura con sus contactos aceptados.")
     st.markdown("---")
     
-    @st.fragment(run_every=2)
-    def renderizar_chat_en_vivo():
-        mensajes = obtener_mensajes()
-        if mensajes:
-            for k, msg in sorted(mensajes.items(), key=lambda x: x[0])[-35:]:
-                es_mio = msg.get('remitente') == st.session_state['usuario_actual']
-                clase = "chat-bubble-user" if es_mio else "chat-bubble-other"
-                
-                if msg.get('tipo') == 'audio' and msg.get('audio_b64'):
-                    st.markdown(f"""
-                        <div class="{clase}">
-                            <small style="color: #94a3b8; font-size: 0.95em;"><b>{msg.get('remitente')}</b> (ID: {msg.get('cedula')}) • 🎤 Nota de Voz • {msg.get('timestamp')}</small><br>
-                    """, unsafe_allow_html=True)
-                    try:
-                        st.audio(base64.b64decode(msg.get('audio_b64')), format='audio/wav')
-                    except Exception:
-                        st.error("No se pudo reproducir el audio.")
-                    st.markdown("</div>", unsafe_allow_html=True)
+    tab_chat, tab_solicitudes = st.tabs(["💬 Mis Chats Privados", "🔔 Notificaciones y Solicitudes de Amistad"])
+    
+    with tab_solicitudes:
+        st.markdown("### 📥 Panel de Solicitudes de Amistad")
+        st.markdown("Aquí puede enviar solicitudes a otros usuarios por su Cédula o aceptar las recibidas.")
+        
+        col_s1, col_s2 = st.columns(2)
+        
+        with col_s1:
+            st.markdown("#### ➕ Enviar Solicitud de Amistad")
+            with st.form(key="form_enviar_solicitud"):
+                cedula_destino_input = st.text_input("🆔 Ingrese la Cédula Destino (Ej: 27558694)")
+                btn_enviar_sol = st.form_submit_button("Enviar Solicitud 🚀", use_container_width=True)
+                if btn_enviar_sol:
+                    if not cedula_destino_input.strip():
+                        st.error("❌ Ingrese una cédula válida.")
+                    elif cedula_destino_input.strip() == st.session_state['cedula_actual']:
+                        st.error("❌ No puede enviarse una solicitud a sí mismo.")
+                    else:
+                        op_destino = obtener_operador(cedula_destino_input.strip())
+                        if op_destino:
+                            enviar_solicitud_amistad(st.session_state['cedula_actual'], st.session_state['usuario_actual'], cedula_destino_input.strip())
+                            st.success(f"✅ Solicitud enviada exitosamente a {op_destino.get('nombre')}.")
+                        else:
+                            st.error("❌ La cédula ingresada no se encuentra registrada en el sistema.")
+                            
+        with col_s2:
+            st.markdown("#### 📬 Solicitudes Recibidas")
+            solicitudes = obtener_solicitudes(st.session_state['cedula_actual'])
+            if solicitudes:
+                for k_sol, dat_sol in solicitudes.items():
+                    estado = dat_sol.get('estado')
+                    if estado == 'pendiente':
+                        st.markdown(f"""
+                            <div class="user-card" style="padding: 15px;">
+                                <p><b>De:</b> {dat_sol.get('remitente_nombre')} (ID: `{dat_sol.get('remitente_cedula')}`)</p>
+                                <p><b>Fecha:</b> {dat_sol.get('timestamp')}</p>
+                            </div>
+                        """, unsafe_allow_html=True)
+                        col_bt1, col_bt2 = st.columns(2)
+                        with col_bt1:
+                            if st.button("✅ Aceptar", key=f"aceptar_{k_sol}Y"):
+                                actualizar_estado_solicitud(st.session_state['cedula_actual'], k_sol, 'aceptada')
+                                # También registrar la reciprocidad o simplemente dejar activo
+                                st.success("¡Solicitud aceptada! Ya puede chatear.")
+                                time.sleep(0.3)
+                                st.rerun()
+                        with col_bt2:
+                            if st.button("❌ Rechazar", key=f"rechazar_{k_sol}N"):
+                                actualizar_estado_solicitud(st.session_state['cedula_actual'], k_sol, 'rechazada')
+                                st.info("Solicitud rechazada.")
+                                time.sleep(0.3)
+                                st.rerun()
+                    elif estado == 'aceptada':
+                        st.info(f"✅ Solicitud de {dat_sol.get('remitente_nombre')} aceptada.")
+            else:
+                st.info("No tiene solicitudes pendientes.")
+
+    with tab_chat:
+        st.markdown("### 💬 Conversaciones Privadas")
+        st.markdown("Seleccione un contacto con el cual tenga una solicitud aceptada para iniciar la mensajería.")
+        
+        # Buscar todas las solicitudes aceptadas (tanto enviadas como recibidas) para armar lista de contactos
+        contactos_validos = {}
+        todos_ops = obtener_todos_operadores()
+        
+        # Ver solicitudes donde este usuario es destino y están aceptadas
+        mis_solicitudes = obtener_solicitudes(st.session_state['cedula_actual'])
+        for k_s, d_s in mis_solicitudes.items():
+            if d_s.get('estado') == 'aceptada':
+                c_rem = d_s.get('remitente_cedula')
+                if c_rem in todos_ops:
+                    contactos_validos[c_rem] = todos_ops[c_rem].get('nombre')
+                    
+        # Ver solicitudes enviadas por mí que hayan sido aceptadas
+        for ced_op, dat_op in todos_ops.items():
+            if ced_op != st.session_state['cedula_actual']:
+                sols_ajenas = obtener_solicitudes(ced_op)
+                for k_aj, d_aj in sols_ajenas.items():
+                    if d_aj.get('remitente_cedula') == st.session_state['cedula_actual'] and d_aj.get('estado') == 'aceptada':
+                        contactos_validos[ced_op] = dat_op.get('nombre')
+
+        if contactos_validos:
+            lista_nombres_contactos = list(contactos_validos.values())
+            seleccion_contacto_nombre = st.selectbox("Seleccione contacto para chatear", lista_nombres_contactos)
+            
+            # Obtener cédula del contacto seleccionado
+            cedula_contacto_sel = [c for c, n in contactos_validos.items() if n == seleccion_contacto_nombre][0]
+            
+            st.markdown(f"---")
+            st.markdown(f"#### 🔒 Chat Seguro con: `{seleccion_contacto_nombre}` (ID: `{cedula_contacto_sel}`)")
+            
+            @st.fragment(run_every=2)
+            def renderizar_chat_privado_en_vivo(mi_ced, ced_amigo):
+                mensajes_privados = obtener_mensajes_privados(mi_ced, ced_amigo)
+                if mensajes_privados:
+                    for k_m, msg in sorted(mensajes_privados.items(), key=lambda x: x[0])[-35:]:
+                        es_mio = msg.get('remitente_cedula') == mi_ced
+                        clase = "chat-bubble-user" if es_mio else "chat-bubble-other"
+                        remitente_nombre_txt = st.session_state['usuario_actual'] if es_mio else seleccion_contacto_nombre
+                        
+                        if msg.get('tipo') == 'audio' and msg.get('audio_b64'):
+                            st.markdown(f"""
+                                <div class="{clase}">
+                                    <small style="color: #94a3b8; font-size: 0.95em;"><b>{remitente_nombre_txt}</b> • 🎤 Nota de Voz • {msg.get('timestamp')}</small><br>
+                            """, unsafe_allow_html=True)
+                            try:
+                                st.audio(base64.b64decode(msg.get('audio_b64')), format='audio/wav')
+                            except Exception:
+                                st.error("No se pudo reproducir el audio.")
+                            st.markdown("</div>", unsafe_allow_html=True)
+                        else:
+                            st.markdown(f"""
+                                <div class="{clase}">
+                                    <small style="color: #94a3b8; font-size: 0.95em;"><b>{remitente_nombre_txt}</b> • {msg.get('timestamp')}</small><br>
+                                    <span style="font-size: 1.15em;">{msg.get('texto')}</span>
+                                </div>
+                            """, unsafe_allow_html=True)
                 else:
-                    st.markdown(f"""
-                        <div class="{clase}">
-                            <small style="color: #94a3b8; font-size: 0.95em;"><b>{msg.get('remitente')}</b> (ID: {msg.get('cedula')}) • {msg.get('timestamp')} • IP: {msg.get('ip')}</small><br>
-                            <span style="font-size: 1.15em;">{msg.get('texto')}</span>
-                        </div>
-                    """, unsafe_allow_html=True)
+                    st.info("No hay mensajes en este chat privado. ¡Envía el primero!")
+
+            renderizar_chat_privado_en_vivo(st.session_state['cedula_actual'], cedula_contacto_sel)
+
+            st.markdown("---")
+            col_env1, col_env2 = st.columns([2, 1])
+            
+            with col_env1:
+                with st.form(key=f"chat_privado_form_{cedula_contacto_sel}", clear_on_submit=True):
+                    txt_msg_p = st.text_input("Escribe un mensaje privado...", placeholder="Mensaje...")
+                    enviar_btn_p = st.form_submit_button("Enviar Mensaje Privado 🚀", use_container_width=True)
+                    if enviar_btn_p and txt_msg_p:
+                        enviar_mensaje_privado(st.session_state['cedula_actual'], cedula_contacto_sel, txt_msg_p, tipo="texto")
+                        st.rerun()
+                        
+            with col_env2:
+                st.markdown("### 🎙️ Enviar Audio Privado")
+                audio_subido_p = st.audio_input("Grabar nota de voz privada", key=f"audio_p_{cedula_contacto_sel}")
+                if audio_subido_p:
+                    bytes_audio_p = audio_subido_p.read()
+                    if bytes_audio_p:
+                        audio_b64_p = base64.b64encode(bytes_audio_p).decode('utf-8')
+                        enviar_mensaje_privado(st.session_state['cedula_actual'], cedula_contacto_sel, "[Nota de Voz]", tipo="audio", audio_b64=audio_b64_p)
+                        st.success("✅ Nota de voz privada enviada.")
+                        time.sleep(0.5)
+                        st.rerun()
         else:
-            st.info("No hay mensajes en el canal. ¡Escribe o envía un audio primero!")
-
-    renderizar_chat_en_vivo()
-
-    st.markdown("---")
-    col_env1, col_env2 = st.columns([2, 1])
-    
-    with col_env1:
-        with st.form(key="chat_envio_form", clear_on_submit=True):
-            txt_msg = st.text_input("Escribe un mensaje instantáneo...", placeholder="Mensaje...")
-            enviar_btn = st.form_submit_button("Enviar Texto 🚀", use_container_width=True)
-            if enviar_btn and txt_msg:
-                enviar_mensaje_db(st.session_state['usuario_actual'], st.session_state['cedula_actual'], txt_msg, tipo="texto")
-                st.rerun()
-                
-    with col_env2:
-        st.markdown("### 🎙️ Grabar Audio")
-        audio_subido = st.audio_input("Grabar nota de voz")
-        if audio_subido:
-            bytes_audio = audio_subido.read()
-            if bytes_audio:
-                audio_b64 = base64.b64encode(bytes_audio).decode('utf-8')
-                enviar_mensaje_db(st.session_state['usuario_actual'], st.session_state['cedula_actual'], "[Nota de Voz]", tipo="audio", audio_b64=audio_b64)
-                st.success("✅ Nota de voz enviada.")
-                time.sleep(0.5)
-                st.rerun()
+            st.warning("⚠️ No tiene contactos con solicitudes aceptadas. Vaya a la pestaña de 'Notificaciones y Solicitudes de Amistad' para agregar y aceptar contactos.")
 
 # -----------------------------------------------------------------
 # MÓDULO 2: VIDEOLLAMADA TÁCTICA P2P
