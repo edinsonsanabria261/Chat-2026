@@ -362,29 +362,34 @@ if eleccion == "🚪 Cerrar Sesión":
     st.rerun()
 
 # -----------------------------------------------------------------
-# MÓDULO 1: CHAT EN TIEMPO REAL
+# MÓDULO 1: CHAT EN TIEMPO REAL (ACTUALIZACIÓN AUTOMÁTICA EN VIVO)
 # -----------------------------------------------------------------
 elif eleccion == "💬 Canal de Chat en Tiempo Real":
-    st.title("💬 Canal de Mensajería Segura")
-    st.markdown("Comunicaciones cifradas con registro de IP de origen.")
+    st.title("💬 Canal de Mensajería en Vivo")
+    st.markdown("Comunicaciones instantáneas estilo WhatsApp con sincronización automática.")
     st.markdown("---")
     
-    mensajes = obtener_mensajes()
-    if mensajes:
-        for k, msg in sorted(mensajes.items(), key=lambda x: x[0])[-35:]:
-            es_mio = msg.get('remitente') == st.session_state['usuario_actual']
-            clase = "chat-bubble-user" if es_mio else "chat-bubble-other"
-            st.markdown(f"""
-                <div class="{clase}">
-                    <small style="color: #94a3b8; font-size: 0.95em;"><b>{msg.get('remitente')}</b> (ID: {msg.get('cedula')}) • {msg.get('timestamp')} • IP: {msg.get('ip')}</small><br>
-                    <span style="font-size: 1.15em;">{msg.get('texto')}</span>
-                </div>
-            """, unsafe_allow_html=True)
-    else:
-        st.info("No hay mensajes en el canal.")
+    # Fragmento con auto-refresco cada 2 segundos para simular chat en vivo sin recargar toda la página
+    @st.fragment(run_every=2)
+    def renderizar_chat_en_vivo():
+        mensajes = obtener_mensajes()
+        if mensajes:
+            for k, msg in sorted(mensajes.items(), key=lambda x: x[0])[-35:]:
+                es_mio = msg.get('remitente') == st.session_state['usuario_actual']
+                clase = "chat-bubble-user" if es_mio else "chat-bubble-other"
+                st.markdown(f"""
+                    <div class="{clase}">
+                        <small style="color: #94a3b8; font-size: 0.95em;"><b>{msg.get('remitente')}</b> (ID: {msg.get('cedula')}) • {msg.get('timestamp')} • IP: {msg.get('ip')}</small><br>
+                        <span style="font-size: 1.15em;">{msg.get('texto')}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info("No hay mensajes en el canal. ¡Escribe el primero!")
+
+    renderizar_chat_en_vivo()
 
     with st.form(key="chat_envio_form", clear_on_submit=True):
-        txt_msg = st.text_input("Escribe un mensaje...", placeholder="Mensaje...")
+        txt_msg = st.text_input("Escribe un mensaje instantáneo...", placeholder="Mensaje...")
         enviar_btn = st.form_submit_button("Enviar Mensaje 🚀", use_container_width=True)
         if enviar_btn and txt_msg:
             meta = obtener_metadatos_locales()
