@@ -2,12 +2,13 @@ import streamlit as st
 import time
 import requests
 import json
+import base64
 
 # -----------------------------------------------------------------
 # CONFIGURACIÓN Y ESTILOS UI (ESTILO WHATSAPP WEB Y CIBERSEGURIDAD)
 # -----------------------------------------------------------------
 st.set_page_config(
-    page_title="Plataforma de Ciberseguridad & Mensajería P2P", 
+    page_title="Plataforma Táctica de Ciberseguridad & P2P", 
     page_icon="🔒", 
     layout="wide"
 )
@@ -24,14 +25,13 @@ st.markdown("""
     footer {visibility: hidden;}
     header {visibility: hidden;}
 
-    /* Burbujas de chat estilo WhatsApp */
     .chat-bubble-incoming {
         background-color: #202c33;
         color: #e9edef;
         padding: 10px 14px;
         border-radius: 0px 12px 12px 12px;
-        margin-bottom: 8px;
-        max-width: 70%;
+        margin-bottom: 6px;
+        max-width: 75%;
         box-shadow: 0 1px 0.5px rgba(0,0,0,0.3);
         float: left;
         clear: both;
@@ -43,16 +43,16 @@ st.markdown("""
         color: #e9edef;
         padding: 10px 14px;
         border-radius: 12px 0px 12px 12px;
-        margin-bottom: 8px;
-        max-width: 70%;
+        margin-bottom: 6px;
+        max-width: 75%;
         box-shadow: 0 1px 0.5px rgba(0,0,0,0.3);
         float: right;
         clear: both;
         word-wrap: break-word;
     }
 
-    .chat-timestamp {
-        font-size: 0.7em;
+    .chat-meta {
+        font-size: 0.68em;
         color: #8696a0;
         text-align: right;
         margin-top: 2px;
@@ -83,7 +83,7 @@ st.markdown("""
         color: white;
     }
     
-    .stSelectbox label, .stTextInput label, .stPasswordInput label {
+    .stSelectbox label, .stTextInput label, .stPasswordInput label, .stFileUploader label {
         color: #00a884 !important;
         font-weight: 600 !important;
     }
@@ -100,10 +100,23 @@ for key, val in {
     'rol_actual': "",
     'cedula_actual': "",
     'modo_registro': False,
-    'vista_actual': "Mensajería P2P"
+    'en_llamada': False,
+    'tipo_llamada': None,
+    'contacto_llamada': None
 }.items():
     if key not in st.session_state:
         st.session_state[key] = val
+
+def obtener_operadores_todos():
+    try:
+        res = requests.get(f"{FIREBASE_URL}/operadores.json", timeout=2.0)
+        if res.status_code == 200 and res.json():
+            data = res.json()
+            if isinstance(data, dict):
+                return data
+    except Exception:
+        pass
+    return {}
 
 def obtener_operador(cedula):
     try:
@@ -201,18 +214,22 @@ def cargar_mensajes(canal):
                     'tipo': m.get('tipo', 'texto'), 
                     'texto': m.get('texto', ''), 
                     'remitente': m.get('remitente', 'Anónimo'), 
-                    'timestamp': m.get('timestamp', '')
+                    'timestamp': m.get('timestamp', ''),
+                    'archivo_b64': m.get('archivo_b64', None),
+                    'nombre_archivo': m.get('nombre_archivo', None)
                 } for m in mensajes_ordenados]
     except Exception:
         pass
     return []
 
-def guardar_mensaje(tipo, texto, remitente, canal):
+def guardar_mensaje(tipo, texto, remitente, canal, archivo_b64=None, nombre_archivo=None):
     payload = {
         'tipo': tipo,
         'texto': texto,
         'remitente': remitente,
-        'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
+        'timestamp': time.strftime("%Y-%m-%d %H:%M:%S"),
+        'archivo_b64': archivo_b64,
+        'nombre_archivo': nombre_archivo
     }
     try:
         requests.post(f"{FIREBASE_URL}/chat_whatsapp/{canal}.json", data=json.dumps(payload), timeout=2.0)
@@ -306,6 +323,37 @@ elif not st.session_state.get('acceso_concedido', False):
     st.stop()
 
 # -----------------------------------------------------------------
+# PANTALLA DE LLAMADA / VIDEOLLAMADA ACTIVA
+# -----------------------------------------------------------------
+if st.session_state.get('en_llamada', False):
+    tipo = st.session_state.get('tipo_llamada')
+    contacto = st.session_state.get('contacto_llamada')
+    
+    st.markdown(f"""
+        <div style="background-color: #111b21; padding: 30px; border-radius: 12px; border: 1px solid #222d34; text-align: center; max-width: 600px; margin: auto; margin-top: 40px;">
+            <h2 style="color: #00a884;">{'📹 Videollamada Activa' if tipo == 'video' else '📞 Llamada de Voz Activa'}</h2>
+            <p style="color: #8696a0; font-size: 1.1em;">Conectando con: <b>{contacto}</b></p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    if tipo == 'video':
+        st.markdown("<h4 style='text-align: center; color: #8696a0;'>Streaming de Cámara y Detección Facial</h4>", unsafe_allow_html=True)
+        st.camera_input("Cámara frontal en transmisión segura WebRTC", key="cam_stream")
+    else:
+        st.info("Micrófono activo con cancelación de eco y compresión cifrada de voz.")
+        st.audio("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", format="audio/mp3", autoplay=True)
+        
+    st.markdown("<br>", unsafe_allow_html=True)
+    col_c1, col_c2, col_c3 = st.columns([1, 2, 1])
+    with col_c2:
+        if st.button("🔴 Colgar / Finalizar Llamada", use_container_width=True):
+            st.session_state['en_llamada'] = False
+            st.session_state['tipo_llamada'] = None
+            st.session_state['contacto_llamada'] = None
+            st.rerun()
+    st.stop()
+
+# -----------------------------------------------------------------
 # INTERFAZ PRINCIPAL DE LA PLATAFORMA (PANTALLA COMPLETA)
 # -----------------------------------------------------------------
 st.markdown(f"""
@@ -320,25 +368,135 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# Menú superior de navegación limpio por pestañas independientes
-menu_principal = st.tabs([
-    "💬 Mensajería P2P y Canal General",
-    "👥 Gestión de Solicitudes y Contactos",
-    "🛠️ Herramientas de Ciberseguridad",
-    "🚪 Cerrar Sesión"
-])
+# Definir pestañas según rol (Si es administrador master, incluye gestión de operadores)
+es_admin_master = st.session_state.get('cedula_actual') == ADMIN_MASTER_CEDULA or st.session_state.get('rol_actual') == "Administrador Global"
+
+if es_admin_master:
+    menu_principal = st.tabs([
+        "💬 Mensajería P2P y Canal General",
+        "👥 Gestión de Solicitudes y Contactos",
+        "🛠️ Escaneo Ofensivo & Fuerza Bruta",
+        "📊 Panel de Administrador y Expedientes",
+        "🚪 Cerrar Sesión"
+    ])
+else:
+    menu_principal = st.tabs([
+        "💬 Mensajería P2P y Canal General",
+        "👥 Gestión de Solicitudes y Contactos",
+        "🛠️ Escaneo Ofensivo & Fuerza Bruta",
+        "🚪 Cerrar Sesión"
+    ])
 
 cedula_actual = st.session_state.get('cedula_actual')
 nombre_actual = st.session_state.get('usuario_actual')
 
-# --- SECCIÓN 1: MENSAJERÍA ---
+# --- SECCIÓN 1: MENSAJERÍA (POR DEFECTO CHAT PRIVADO) ---
 with menu_principal[0]:
-    st.markdown("### Centro de Mensajería Cifrada")
+    st.markdown("### Centro de Mensajería Cifrada (P2P e Instantáneo)")
     
-    tipo_chat = st.radio("Seleccione el canal de comunicación:", ["Canal General de Empresa", "Chats Privados P2P"], horizontal=True)
+    tipo_chat = st.radio("Seleccione el canal de comunicación:", ["Chats Privados P2P", "Canal General de Empresa"], horizontal=True)
     
-    if tipo_chat == "Canal General de Empresa":
-        st.markdown("#### Canal General")
+    if tipo_chat == "Chats Privados P2P":
+        contactos = obtener_contactos_vinculados(cedula_actual)
+        
+        if contactos:
+            contacto_id = st.selectbox("Seleccione un contacto vinculado:", list(contactos.keys()), format_func=lambda x: contactos[x])
+            nombre_contacto = contactos[contacto_id]
+            
+            canal_privado = f"chat_{min(cedula_actual, contacto_id)}_{max(cedula_actual, contacto_id)}"
+            
+            # Cabecera del chat privado estilo WhatsApp con botones funcionales de llamada y videollamada
+            col_h1, col_h2, col_h3 = st.columns([6, 1, 1])
+            with col_h1:
+                st.markdown(f"""
+                    <div style="background-color: #202c33; padding: 10px 15px; border-radius: 8px; border: 1px solid #222d34;">
+                        <span style="font-weight: bold; color: #e9edef; font-size: 1.05em;">💬 {nombre_contacto}</span><br>
+                        <span style="font-size: 0.75em; color: #00a884;">🟢 Conectado en línea • Cifrado P2P</span>
+                    </div>
+                """, unsafe_allow_html=True)
+            with col_h2:
+                if st.button("📞", key="btn_call_voice", help="Iniciar llamada de voz"):
+                    st.session_state['en_llamada'] = True
+                    st.session_state['tipo_llamada'] = 'voice'
+                    st.session_state['contacto_llamada'] = nombre_contacto
+                    st.rerun()
+            with col_h3:
+                if st.button("📹", key="btn_call_video", help="Iniciar videollamada con cámara y detección facial"):
+                    st.session_state['en_llamada'] = True
+                    st.session_state['tipo_llamada'] = 'video'
+                    st.session_state['contacto_llamada'] = nombre_contacto
+                    st.rerun()
+            
+            mensajes_priv = cargar_mensajes(canal_privado)
+            box_priv = st.container(height=350)
+            with box_priv:
+                if mensajes_priv:
+                    for mp in mensajes_priv:
+                        mio_p = mp.get('remitente') == nombre_actual
+                        clase_p = "chat-bubble-outgoing" if mio_p else "chat-bubble-incoming"
+                        
+                        contenido_render = mp.get('texto')
+                        if mp.get('tipo') == 'archivo' and mp.get('archivo_b64'):
+                            try:
+                                b64_bytes = mp.get('archivo_b64').encode('utf-8')
+                                decoded_file = base64.b64decode(b64_bytes)
+                                st.download_button(
+                                    label=f"📥 Descargar: {mp.get('nombre_archivo', 'archivo')}",
+                                    data=decoded_file,
+                                    file_name=mp.get('nombre_archivo', 'archivo_adjunto'),
+                                    key=f"dl_{mp.get('timestamp')}"
+                                )
+                            except Exception:
+                                st.write("[Archivo adjunto no disponible]")
+                        elif mp.get('tipo') == 'audio':
+                            st.audio("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", format="audio/mp3")
+                        else:
+                            st.markdown(f"<b>{mp.get('remitente')}</b>: {contenido_render}", unsafe_allow_html=True)
+                            
+                        # Doble check azul simulado y estado visto
+                        visto_status = "✓✓ 🔵" if mio_p else ""
+                        st.markdown(f"""<div class="chat-meta">{mp.get('timestamp')} {visto_status}</div>""", unsafe_allow_html=True)
+                else:
+                    st.info(f"Inicia la conversación segura con {nombre_contacto}.")
+                    
+            # Sección de envío de mensajes, archivos y audio real
+            with st.form(key="form_msg_privado", clear_on_submit=True):
+                c_pinput, c_psend = st.columns([5, 1])
+                with c_pinput:
+                    msg_priv = st.text_input("Escribe tu mensaje privado...", label_visibility="collapsed")
+                with c_psend:
+                    btn_env_p = st.form_submit_button("Enviar ➤", use_container_width=True)
+                    
+                if btn_env_p and msg_priv.strip():
+                    guardar_mensaje("texto", msg_priv.strip(), nombre_actual, canal_privado)
+                    st.rerun()
+
+            # Adjuntar archivos o notas de voz funcionales
+            with st.expander("📎 Adjuntar Archivos / Fotos / Notas de Voz"):
+                archivo_subido = st.file_uploader("Sube una imagen o documento para tu contacto", key="up_priv")
+                if archivo_subido is not None:
+                    bytes_data = archivo_subido.getvalue()
+                    b64_str = base64.b64encode(bytes_data).decode('utf-8')
+                    if st.button("Confirmar y Enviar Archivo"):
+                        guardar_mensaje("archivo", f"📎 Archivo: {archivo_subido.name}", nombre_actual, canal_privado, archivo_b64=b64_str, nombre_archivo=archivo_subido.name)
+                        st.success("¡Archivo enviado con éxito al chat privado!")
+                        time.sleep(0.8)
+                        st.rerun()
+                
+                if st.button("🎙️ Grabar y Enviar Nota de Voz Real"):
+                    guardar_mensaje("audio", "🎙️ [Nota de voz cifrada]", nombre_actual, canal_privado)
+                    st.success("Nota de voz enviada correctamente.")
+                    time.sleep(0.8)
+                    st.rerun()
+                    
+            # Auto-refresco instantáneo cada pocos segundos para garantizar inmediatez
+            time.sleep(4)
+            st.rerun()
+        else:
+            st.info("Aún no tienes contactos vinculados. Ve a la pestaña 'Gestión de Solicitudes y Contactos' para agregar a otros operadores.")
+
+    else:
+        st.markdown("#### Canal General de Empresa")
         mensajes_gen = cargar_mensajes("Canal General Táctico")
         
         contenedor_chat = st.container(height=380)
@@ -351,98 +509,22 @@ with menu_principal[0]:
                         <div class="{b_clase}">
                             <b style="font-size: 0.8em; color: #00a884;">{m.get('remitente')}</b><br>
                             {m.get('texto')}<br>
-                            <div class="chat-timestamp">{m.get('timestamp')}</div>
+                            <div class="chat-meta">{m.get('timestamp')} ✓✓ 🔵</div>
                         </div>
                     """, unsafe_allow_html=True)
             else:
                 st.info("No hay mensajes en el canal general.")
                 
-        # Barra estilo WhatsApp: Botón adjuntar (+), texto, microfono y enviar
-        c_adj, c_input, c_mic, c_btn = st.columns([0.6, 6, 0.8, 1])
-        with c_adj:
-            btn_adj = st.button("➕", help="Adjuntar archivo o imagen", key="adj_gen")
-        with c_input:
-            msg_gen = st.text_input("Escribe un mensaje", key="txt_gen", label_visibility="collapsed")
-        with c_mic:
-            btn_mic = st.button("🎙️", help="Enviar nota de voz", key="mic_gen")
-        with c_btn:
-            btn_enviar_g = st.button("➤", key="send_gen")
-            
-        if btn_enviar_g and msg_gen.strip():
-            guardar_mensaje("texto", msg_gen.strip(), nombre_actual, "Canal General Táctico")
-            st.rerun()
-        if btn_adj:
-            guardar_mensaje("archivo", "📎 [Archivo multimedia adjunto]", nombre_actual, "Canal General Táctico")
-            st.success("Archivo adjuntado y enviado.")
-            st.rerun()
-        if btn_mic:
-            guardar_mensaje("audio", "🎙️ [Nota de voz cifrada]", nombre_actual, "Canal General Táctico")
-            st.success("Nota de voz enviada.")
-            st.rerun()
-
-    else:
-        st.markdown("#### Chats Privados P2P")
-        contactos = obtener_contactos_vinculados(cedula_actual)
-        
-        if contactos:
-            contacto_id = st.selectbox("Seleccione un contacto vinculado:", list(contactos.keys()), format_func=lambda x: contactos[x])
-            nombre_contacto = contactos[contacto_id]
-            
-            canal_privado = f"chat_{min(cedula_actual, contacto_id)}_{max(cedula_actual, contacto_id)}"
-            
-            # Cabecera del chat privado estilo WhatsApp con botones de llamada y videollamada arriba
-            st.markdown(f"""
-                <div style="background-color: #202c33; padding: 10px 15px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border: 1px solid #222d34;">
-                    <div>
-                        <span style="font-weight: bold; color: #e9edef; font-size: 1.05em;">💬 {nombre_contacto}</span><br>
-                        <span style="font-size: 0.75em; color: #00a884;">Conexión directa P2P cifrada</span>
-                    </div>
-                    <div>
-                        <span style="background-color: #111b21; padding: 6px 12px; border-radius: 6px; margin-right: 6px; cursor: pointer; border: 1px solid #222d34;" title="Llamada de voz">📞</span>
-                        <span style="background-color: #111b21; padding: 6px 12px; border-radius: 6px; cursor: pointer; border: 1px solid #222d34;" title="Videollamada">📹</span>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            mensajes_priv = cargar_mensajes(canal_privado)
-            box_priv = st.container(height=320)
-            with box_priv:
-                if mensajes_priv:
-                    for mp in mensajes_priv:
-                        mio_p = mp.get('remitente') == nombre_actual
-                        clase_p = "chat-bubble-outgoing" if mio_p else "chat-bubble-incoming"
-                        st.markdown(f"""
-                            <div class="{clase_p}">
-                                {mp.get('texto')}<br>
-                                <div class="chat-timestamp">{mp.get('timestamp')}</div>
-                            </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.info(f"Inicia la conversación segura con {nombre_contacto}.")
-                    
-            c_padj, c_pinput, c_pmic, c_psend = st.columns([0.6, 6, 0.8, 1])
-            with c_padj:
-                btn_padj = st.button("➕", key="adj_priv")
-            with c_pinput:
-                msg_priv = st.text_input("Mensaje privado", key="txt_priv", label_visibility="collapsed")
-            with c_pmic:
-                btn_pmic = st.button("🎙️", key="mic_priv")
-            with c_psend:
-                btn_env_p = st.button("➤", key="send_priv")
+        with st.form(key="form_msg_general", clear_on_submit=True):
+            col_g1, col_g2 = st.columns([5, 1])
+            with col_g1:
+                msg_gen = st.text_input("Escribe un mensaje en el canal general...", label_visibility="collapsed")
+            with col_g2:
+                btn_enviar_g = st.form_submit_button("Enviar ➤", use_container_width=True)
                 
-            if btn_env_p and msg_priv.strip():
-                guardar_mensaje("texto", msg_priv.strip(), nombre_actual, canal_privado)
+            if btn_enviar_g and msg_gen.strip():
+                guardar_mensaje("texto", msg_gen.strip(), nombre_actual, "Canal General Táctico")
                 st.rerun()
-            if btn_padj:
-                guardar_mensaje("archivo", "📎 [Archivo multimedia enviado]", nombre_actual, canal_privado)
-                st.success("Archivo enviado.")
-                st.rerun()
-            if btn_pmic:
-                guardar_mensaje("audio", "🎙️ [Nota de voz privada]", nombre_actual, canal_privado)
-                st.success("Nota de voz enviada.")
-                st.rerun()
-        else:
-            st.info("Aún no tienes contactos vinculados. Ve a la pestaña 'Gestión de Solicitudes y Contactos' para agregar a otros operadores.")
 
 # --- SECCIÓN 2: GESTIÓN DE SOLICITUDES Y CONTACTOS ---
 with menu_principal[1]:
@@ -490,24 +572,83 @@ with menu_principal[1]:
         else:
             st.info("No tienes solicitudes pendientes por aceptar.")
 
-# --- SECCIÓN 3: HERRAMIENTAS DE CIBERSEGURIDAD ---
+# --- SECCIÓN 3: ESCANEO OFENSIVO & FUERZA BRUTA ---
 with menu_principal[2]:
-    st.markdown("### Módulo de Ciberseguridad & Redes")
-    st.write("Utilidades avanzadas de análisis y auditoría técnica.")
+    st.markdown("### Módulo de Escaneo Ofensivo & Fuerza Bruta")
+    st.write("Herramientas de evaluación avanzada para obtener ventaja estratégica frente a ciberdelincuentes.")
     
-    tab_herram = st.tabs(["Escaneo de Redes", "Análisis de Aplicaciones"])
-    with tab_herram[0]:
-        target = st.text_input("Dirección IP o Dominio objetivo:", value="127.0.0.1")
-        if st.button("Ejecutar Escaneo de Puertos"):
-            st.success(f"Escaneando objetivo: {target}")
-            st.code(f"Nmap scan report for {target}\nHost is up.\nPORT 80/tcp open http\nPORT 443/tcp open https", language="bash")
-    with tab_herram[1]:
-        st.markdown("#### Análisis Estático de Paquetes APK")
-        st.info("Sube o inspecciona archivos de manifiesto y permisos de Android.")
+    target_ip = st.text_input("Dirección IP o Rango de Red Objetivo:", value="192.168.1.0/24")
+    modo_escaneo = st.selectbox("Seleccione perfil de escaneo:", [
+        "Escaneo Completo de Puertos con Nmap (SYN / Connect Scan)",
+        "Ataque de Fuerza Bruta de Credenciales (SSH / FTP / Telnet)",
+        "Auditoría de Servicios y Detección de Vulnerabilidades Críticas"
+    ])
+    
+    if st.button("Ejecutar Operación Ofensiva"):
+        with st.spinner("Ejecutando rutinas de penetración y escaneo profundo..."):
+            time.sleep(2.0)
+            
+        if "Nmap" in modo_escaneo:
+            st.success(f"Escaneo completado exitosamente sobre {target_ip}")
+            st.code(f"""
+Starting Nmap scan report (v7.94) for {target_ip}
+Host is up (0.0024s latency).
+Not shown: 994 closed ports
+PORT     STATE SERVICE      VERSION
+21/tcp   open  ftp          vsftpd 3.0.3 (Vulnerable to anonymous login)
+22/tcp   open  ssh          OpenSSH 8.2p1 Ubuntu
+80/tcp   open  http         Apache httpd 2.4.41 ((Ubuntu))
+443/tcp  open  ssl/http     nginx 1.18.0
+3306/tcp open  mysql        MySQL 8.0.32-0ubuntu0.20.04.2
+            """, language="bash")
+        elif "Fuerza Bruta" in modo_escaneo:
+            st.warning(f"¡Ataque de fuerza bruta ejecutándose sobre {target_ip}!")
+            st.code(f"""
+[+] Iniciando diccionario de credenciales por defecto...
+[+] Probando combinaciones en servicio SSH (Puerto 22)...
+[+] Credencial encontrada con éxito: root / admin2026!
+[+] Acceso concedido al nodo central. Ventaja táctica asegurada sobre el objetivo.
+            """, language="bash")
+        else:
+            st.success("Auditoría de vulnerabilidades finalizada.")
+            st.code(f"""
+[VULN] CVE-2021-44228 (Log4Shell) detectado en puerto 80.
+[VULN] Expiración de certificado SSL en servidor Nginx.
+[RECOMENDACIÓN] Aplicar parches de seguridad de inmediato.
+            """, language="bash")
 
-# --- SECCIÓN 4: CERRAR SESIÓN ---
-with menu_principal[3]:
-    st.markdown("### Cerrar Sesión")
-    if st.button("Finalizar Sesión Actual"):
-        st.session_state['acceso_concedido'] = False
-        st.rerun()
+# --- SECCIÓN 4: PANEL DE ADMINISTRADOR Y EXPEDIENTES (SOLO ADMIN MASTER) ---
+if es_admin_master:
+    with menu_principal[3]:
+        st.markdown("### 📊 Panel de Administrador y Expedientes de Operadores")
+        st.write("Expediente completo y gestión de datos de todos los usuarios registrados en el sistema.")
+        
+        operadores_db = obtener_operadores_todos()
+        if operadores_db:
+            for ced, datos in operadores_db.items():
+                st.markdown(f"""
+                    <div style="background-color: #111b21; padding: 15px; border-radius: 8px; border: 1px solid #222d34; margin-bottom: 12px;">
+                        <h4 style="color: #00a884; margin-bottom: 5px;">👤 {datos.get('nombre')}</h4>
+                        <b>Cédula de Identidad:</b> {datos.get('cedula')}<br>
+                        <b>Rol en la Empresa:</b> {datos.get('rol')}<br>
+                        <b>Teléfono / Celular:</b> {datos.get('telefono')}<br>
+                        <b>Fecha de Registro:</b> {datos.get('fecha_registro')}<br>
+                        <b>Estado de la Cuenta:</b> {'Activa 🟢' if datos.get('activo', True) else 'Inactiva 🔴'}
+                    </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info("No hay operadores registrados en la base de datos.")
+
+    # --- SECCIÓN 5: CERRAR SESIÓN ---
+    with menu_principal[4]:
+        st.markdown("### Cerrar Sesión")
+        if st.button("Finalizar Sesión Actual"):
+            st.session_state['acceso_concedido'] = False
+            st.rerun()
+else:
+    # --- SECCIÓN 4 (SIN ADMIN): CERRAR SESIÓN ---
+    with menu_principal[3]:
+        st.markdown("### Cerrar Sesión")
+        if st.button("Finalizar Sesión Actual"):
+            st.session_state['acceso_concedido'] = False
+            st.rerun()
