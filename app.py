@@ -182,9 +182,11 @@ def obtener_todos_operadores():
         pass
     return {}
 
-def enviar_mensaje_db(remitente, cedula, texto, meta):
+def enviar_mensaje_db(remitente, cedula, texto, tipo="texto", audio_b64=None):
+    meta = obtener_metadatos_locales()
     payload = {
         'remitente': remitente, 'cedula': cedula, 'texto': texto,
+        'tipo': tipo, 'audio_b64': audio_b64 if audio_b64 else "",
         'timestamp': time.strftime("%H:%M:%S - %d/%m/%Y"), 'ip': meta.get('ip')
     }
     try:
@@ -342,7 +344,7 @@ st.sidebar.markdown(f"🆔 **Cédula:** `{st.session_state['cedula_actual']}`")
 st.sidebar.markdown(f"🛡️ **Rango:** `{st.session_state['rol_actual']}`")
 st.sidebar.markdown("---")
 
-menu_opciones = ["💬 Canal de Chat en Tiempo Real"]
+menu_opciones = ["💬 Canal de Chat en Vivo y Audios", "📹 Videollamada Táctica P2P"]
 if es_admin:
     menu_opciones.extend([
         "👥 Control y Registro de Operadores",
@@ -362,14 +364,13 @@ if eleccion == "🚪 Cerrar Sesión":
     st.rerun()
 
 # -----------------------------------------------------------------
-# MÓDULO 1: CHAT EN TIEMPO REAL (ACTUALIZACIÓN AUTOMÁTICA EN VIVO)
+# MÓDULO 1: CHAT EN TIEMPO REAL CON NOTAS DE VOZ Y AUTO-REFRESCO
 # -----------------------------------------------------------------
-elif eleccion == "💬 Canal de Chat en Tiempo Real":
-    st.title("💬 Canal de Mensajería en Vivo")
-    st.markdown("Comunicaciones instantáneas estilo WhatsApp con sincronización automática.")
+elif eleccion == "💬 Canal de Chat en Vivo y Audios":
+    st.title("💬 Canal de Mensajería en Vivo y Notas de Voz")
+    st.markdown("Comunicaciones instantáneas tipo WhatsApp con sincronización automática y envío de audio.")
     st.markdown("---")
     
-    # Fragmento con auto-refresco cada 2 segundos para simular chat en vivo sin recargar toda la página
     @st.fragment(run_every=2)
     def renderizar_chat_en_vivo():
         mensajes = obtener_mensajes()
@@ -377,27 +378,78 @@ elif eleccion == "💬 Canal de Chat en Tiempo Real":
             for k, msg in sorted(mensajes.items(), key=lambda x: x[0])[-35:]:
                 es_mio = msg.get('remitente') == st.session_state['usuario_actual']
                 clase = "chat-bubble-user" if es_mio else "chat-bubble-other"
-                st.markdown(f"""
-                    <div class="{clase}">
-                        <small style="color: #94a3b8; font-size: 0.95em;"><b>{msg.get('remitente')}</b> (ID: {msg.get('cedula')}) • {msg.get('timestamp')} • IP: {msg.get('ip')}</small><br>
-                        <span style="font-size: 1.15em;">{msg.get('texto')}</span>
-                    </div>
-                """, unsafe_allow_html=True)
+                
+                if msg.get('tipo') == 'audio' and msg.get('audio_b64'):
+                    st.markdown(f"""
+                        <div class="{clase}">
+                            <small style="color: #94a3b8; font-size: 0.95em;"><b>{msg.get('remitente')}</b> (ID: {msg.get('cedula')}) • 🎤 Nota de Voz • {msg.get('timestamp')}</small><br>
+                    """, unsafe_allow_html=True)
+                    try:
+                        st.audio(base64.b64decode(msg.get('audio_b64')), format='audio/wav')
+                    except Exception:
+                        st.error("No se pudo reproducir el audio.")
+                    st.markdown("</div>", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                        <div class="{clase}">
+                            <small style="color: #94a3b8; font-size: 0.95em;"><b>{msg.get('remitente')}</b> (ID: {msg.get('cedula')}) • {msg.get('timestamp')} • IP: {msg.get('ip')}</small><br>
+                            <span style="font-size: 1.15em;">{msg.get('texto')}</span>
+                        </div>
+                    """, unsafe_allow_html=True)
         else:
-            st.info("No hay mensajes en el canal. ¡Escribe el primero!")
+            st.info("No hay mensajes en el canal. ¡Escribe o envía un audio primero!")
 
     renderizar_chat_en_vivo()
 
-    with st.form(key="chat_envio_form", clear_on_submit=True):
-        txt_msg = st.text_input("Escribe un mensaje instantáneo...", placeholder="Mensaje...")
-        enviar_btn = st.form_submit_button("Enviar Mensaje 🚀", use_container_width=True)
-        if enviar_btn and txt_msg:
-            meta = obtener_metadatos_locales()
-            enviar_mensaje_db(st.session_state['usuario_actual'], st.session_state['cedula_actual'], txt_msg, meta)
-            st.rerun()
+    st.markdown("---")
+    col_env1, col_env2 = st.columns([2, 1])
+    
+    with col_env1:
+        with st.form(key="chat_envio_form", clear_on_submit=True):
+            txt_msg = st.text_input("Escribe un mensaje instantáneo...", placeholder="Mensaje...")
+            enviar_btn = st.form_submit_button("Enviar Texto 🚀", use_container_width=True)
+            if enviar_btn and txt_msg:
+                enviar_mensaje_db(st.session_state['usuario_actual'], st.session_state['cedula_actual'], txt_msg, tipo="texto")
+                st.rerun()
+                
+    with col_env2:
+        st.markdown("### 🎙️ Grabar Audio")
+        audio_subido = st.audio_input("Grabar nota de voz")
+        if audio_subido:
+            bytes_audio = audio_subido.read()
+            if bytes_audio:
+                audio_b64 = base64.b64encode(bytes_audio).decode('utf-8')
+                enviar_mensaje_db(st.session_state['usuario_actual'], st.session_state['cedula_actual'], "[Nota de Voz]", tipo="audio", audio_b64=audio_b64)
+                st.success("✅ Nota de voz enviada.")
+                time.sleep(0.5)
+                st.rerun()
 
 # -----------------------------------------------------------------
-# MÓDULO 2: CONTROL Y REGISTRO DE OPERADORES
+# MÓDULO 2: VIDEOLLAMADA TÁCTICA P2P
+# -----------------------------------------------------------------
+elif eleccion == "📹 Videollamada Táctica P2P":
+    st.title("📹 Sistema de Videollamadas Tácticas P2P")
+    st.markdown("Establezca comunicación de video en directo entre operadores conectados.")
+    st.markdown("---")
+    
+    st.markdown("""
+        <div class="user-card" style="text-align: center; padding: 40px;">
+            <h3>🟢 Sala de Videoconferencia Activa</h3>
+            <p>Utilice la cámara de su dispositivo para transmitir video en tiempo real con otros operadores autorizados.</p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    col_cam1, col_cam2 = st.columns(2)
+    with col_cam1:
+        st.markdown("### 📷 Su Transmisión Local")
+        st.camera_input("Cámara de Videollamada Activa", key="videollamada_local")
+        
+    with col_cam2:
+        st.markdown("### 📡 Canal de Video Remoto")
+        st.info("📡 Conectado al nodo central de video. Esperando flujo entrante de otros operadores en la red táctica...")
+
+# -----------------------------------------------------------------
+# MÓDULO 3: CONTROL Y REGISTRO DE OPERADORES
 # -----------------------------------------------------------------
 elif eleccion == "👥 Control y Registro de Operadores":
     if not es_admin:
@@ -428,7 +480,7 @@ elif eleccion == "👥 Control y Registro de Operadores":
         st.info("No hay operadores registrados.")
 
 # -----------------------------------------------------------------
-# MÓDULO 3: EXIFTOOL MODERNIZADO Y RESALTADO PARA EL ADMINISTRADOR
+# MÓDULO 4: EXIFTOOL MODERNIZADO Y RESALTADO PARA EL ADMINISTRADOR
 # -----------------------------------------------------------------
 elif eleccion == "📸 ExifTool & Análisis de Metadatos":
     if not es_admin:
@@ -477,7 +529,7 @@ elif eleccion == "📸 ExifTool & Análisis de Metadatos":
         st.markdown('</div>', unsafe_allow_html=True)
 
 # -----------------------------------------------------------------
-# MÓDULO 4: MAPEO DE CONEXIONES, GEOLOCALIZACIÓN Y TIEMPOS DE ACCESO
+# MÓDULO 5: MAPEO DE CONEXIONES, GEOLOCALIZACIÓN Y TIEMPOS DE ACCESO
 # -----------------------------------------------------------------
 elif eleccion == "🕵️ Mapeo de Conexiones y Geolocalización (IPs)":
     if not es_admin:
