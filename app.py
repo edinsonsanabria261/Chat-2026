@@ -27,7 +27,6 @@ st.markdown("""
     h3 { font-size: 1.4em !important; font-weight: 700 !important; color: #facc15 !important; }
     p, label, span { font-size: 1.05em !important; font-weight: 500 !important; color: #e2e8f0 !important; }
     
-    /* Contenedores con Estilo HUD / Tarjetas Ciberseguridad */
     .cyber-card {
         background: linear-gradient(145deg, #161b22 0%, #0d1117 100%);
         padding: 24px;
@@ -56,29 +55,6 @@ st.markdown("""
         box-shadow: 0 0 20px rgba(56,189,248,0.3);
         background: rgba(56, 189, 248, 0.05);
         margin-bottom: 25px;
-    }
-    
-    /* Óvalo Guía Biométrico HUD Estilo Imagen */
-    .hud-oval-container {
-        position: relative;
-        width: 100%;
-        max-width: 380px;
-        margin: 0 auto;
-        border: 3px solid #00ffcc;
-        border-radius: 50% / 45%;
-        padding: 15px;
-        box-shadow: 0 0 30px rgba(0,255,204,0.5), inset 0 0 20px rgba(0,255,204,0.3);
-        background: rgba(0, 255, 204, 0.04);
-        text-align: center;
-    }
-
-    .telemetry-console {
-        background-color: #0b0f17;
-        border: 1px solid #1f293d;
-        border-radius: 12px;
-        padding: 15px;
-        font-family: monospace;
-        box-shadow: inset 0 0 10px rgba(0,0,0,0.6);
     }
     
     .chat-bubble-user {
@@ -133,7 +109,8 @@ for key, val in {
     'usuario_actual': "",
     'rol_actual': "",
     'cedula_actual': "",
-    'modo_registro': False
+    'modo_registro': False,
+    'paso_verificacion_facial': False
 }.items():
     if key not in st.session_state:
         st.session_state[key] = val
@@ -184,7 +161,7 @@ def validar_rostro_biometrico_estricto(nueva_img_bytes, foto_registrada_b64=None
             correlacion = np.corrcoef(a1.flatten(), a2.flatten())[0, 1]
             puntaje_real = max(80.0, min(99.8, (correlacion + 1) * 50.0))
             if puntaje_real < 95.0:
-                return False, f"❌ ACCESO DENEGADO: Coincidencia biométrica de {puntaje_real:.2f}% (Inferior al 95% requerido)."
+                return False, f"❌ ACCESO DENEGADO: Coincidencia biométrica de {puntaje_real:.2f}% (Inferior al 95% requerido para esta cédula)."
         return True, "✅ Biometría facial confirmada (> 95% Match)."
     except Exception as e:
         return False, f"❌ Error en validación: {str(e)}"
@@ -308,7 +285,7 @@ if st.session_state.get('modo_registro', False):
         st.markdown("### 📸 Paso 2 y 3: Óvalo de Detección Facial en Vivo & Prueba de Vida (Liveness)")
         st.markdown("""
             <div style="background-color: #161b22; padding: 15px; border-radius: 12px; border: 1px solid #00ffcc; text-align: center; margin-bottom: 15px;">
-                <span style="color: #00ffcc; font-weight: bold;">🟢 GUÍA DE POSICIONAMIENTO HUD:</span> Coloque su rostro estrictamente dentro del óvalo guía para superar la telemetría de vida.
+                <span style="color: #00ffcc; font-weight: bold;">🟢 GUÍA DE POSICIONAMIENTO HUD:</span> Coloque su rostro estrictamente dentro del óvalo guía para registrar su biometría.
             </div>
         """, unsafe_allow_html=True)
         
@@ -339,9 +316,9 @@ if st.session_state.get('modo_registro', False):
                     
                     if puntaje_match >= 95.0:
                         meta = obtener_metadatos_locales()
-                        rol = "Administrador Global" if reg_cedula == CEDULA_ADMIN_MAESTRO else "Operador Verificado"
+                        rol = "Administrador Global" if reg_cedula == CEDULA_ADMIN_MAESTRO else "Operador Protegido (Empresa/Familia)"
                         guardar_operador(reg_cedula, reg_nombres.strip(), reg_apellidos.strip(), rol, bytes_selfie, meta)
-                        st.success(f"✅ ¡Registro Biométrico Exitoso! Coincidencia: `{puntaje_match:.2f}%` (Supera el 95% requerido).")
+                        st.success(f"✅ ¡Registro Biométrico Exitoso! Coincidencia: `{puntaje_match:.2f}%`. Rostro guardado en base de datos.")
                         st.session_state['modo_registro'] = False
                         time.sleep(1.2)
                         st.rerun()
@@ -353,13 +330,16 @@ if st.session_state.get('modo_registro', False):
         st.rerun()
     st.stop()
 
+# -----------------------------------------------------------------
+# PANTALLA DE LOGIN CON DOBLE FACTOR (CÉDULA + LLAVE + CÁMARA FACIAL)
+# -----------------------------------------------------------------
 elif not st.session_state['acceso_concedido']:
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("""
         <div class="login-hud-box">
             <div style="font-size: 2.5em; margin-bottom: 10px;">🛡️</div>
             <h2 style="color: #00ffcc; margin-bottom: 5px;">CENTRO TÁCTICO PERICIAL</h2>
-            <p style="color: #38bdf8; font-size: 0.95em; margin-bottom: 25px;">Modo Oscuro Cyber • Ingrese su Cédula y Llave (<code>VIP-2026</code>)</p>
+            <p style="color: #38bdf8; font-size: 0.95em; margin-bottom: 25px;">Autenticación Estricta: Cédula, Llave y Verificación Facial Obligatoria</p>
         </div>
     """, unsafe_allow_html=True)
     
@@ -369,38 +349,75 @@ elif not st.session_state['acceso_concedido']:
     with col_l1:
         st.markdown("""
             <div class="cyber-card">
-                <h3>🔑 Ingresar al Sistema</h3>
+                <h3>🔑 Ingreso Seguro por Operador</h3>
         """, unsafe_allow_html=True)
-        with st.form(key="login_layer1"):
-            ced_input = st.text_input("🆔 Cédula de Identidad")
-            llave_input = st.text_input("🔑 Llave de Acceso", type="password", placeholder="VIP-2026")
-            btn_login = st.form_submit_button("Entrar 🚀", use_container_width=True)
-            
-            if btn_login:
-                if hmac.compare_digest(llave_input, LLAVE_MAESTRA) or llave_input == "VIP-2026-SECURE":
-                    op_existente = obtener_operador(ced_input)
-                    meta = obtener_metadatos_locales()
-                    if op_existente or ced_input == CEDULA_ADMIN_MAESTRO:
-                        nombre_usr = op_existente.get('nombre', 'Edinson Carlos Marin Sanabria') if op_existente else "Edinson Carlos Marin Sanabria"
-                        rol_usr = op_existente.get('rol', 'Administrador Global') if op_existente else "Administrador Global"
-                        st.session_state['acceso_concedido'] = True
-                        st.session_state['autenticado'] = True
-                        st.session_state['cedula_actual'] = ced_input
-                        st.session_state['usuario_actual'] = nombre_usr
-                        st.session_state['rol_actual'] = rol_usr
-                        registrar_conexion_auditoria(nombre_usr, ced_input, "Conexión Exitosa (Login)", meta)
-                        st.rerun()
+        
+        # Paso 1: Ingreso de Cédula y Llave
+        if not st.session_state['paso_verificacion_facial']:
+            with st.form(key="login_layer1"):
+                ced_input = st.text_input("🆔 Ingrese su Cédula de Identidad")
+                llave_input = st.text_input("🔑 Llave de Acceso", type="password", placeholder="VIP-2026")
+                btn_login_paso1 = st.form_submit_button("Siguiente: Escaneo Facial ➡️", use_container_width=True)
+                
+                if btn_login_paso1:
+                    if hmac.compare_digest(llave_input, LLAVE_MAESTRA) or llave_input == "VIP-2026-SECURE":
+                        op_existente = obtener_operador(ced_input)
+                        if op_existente or ced_input == CEDULA_ADMIN_MAESTRO:
+                            st.session_state['cedula_temp'] = ced_input
+                            st.session_state['paso_verificacion_facial'] = True
+                            st.rerun()
+                        else:
+                            st.warning("⚠️ Cédula no registrada en la base de datos. Vaya a 'Nuevo Usuario'.")
                     else:
-                        st.warning("⚠️ Cédula no registrada. Vaya a Registro.")
+                        st.error("❌ Llave incorrecta. Utilice VIP-2026.")
+        
+        # Paso 2: Validación biométrica facial obligatoria para evitar suplantaciones
+        else:
+            ced_actual_verif = st.session_state['cedula_temp']
+            op_existente = obtener_operador(ced_actual_verif)
+            nombre_usr = op_existente.get('nombre', 'Administrador Global') if op_existente else "Edinson Carlos Marin Sanabria"
+            
+            st.markdown(f"👤 Operador: `<b>{nombre_usr}</b>`", unsafe_allow_html=True)
+            st.markdown("<p style='color: #00ffcc; font-size: 0.9em;'>Colóquese frente a la cámara. El sistema comparará su rostro en vivo con la foto guardada en su registro.</p>", unsafe_allow_html=True)
+            
+            foto_login_vivo = st.camera_input("📸 Escaneo Facial de Acceso (Evita Suplantación)")
+            
+            if foto_login_vivo:
+                bytes_login_img = foto_login_vivo.getvalue()
+                foto_registrada_b64 = op_existente.get('foto') if op_existente else None
+                
+                valido, mensaje_match = validar_rostro_biometrico_estricto(bytes_login_img, foto_registrada_b64)
+                
+                if valido:
+                    meta = obtener_metadatos_locales()
+                    rol_usr = op_existente.get('rol', 'Administrador Global') if op_existente else "Administrador Global"
+                    
+                    st.session_state['acceso_concedido'] = True
+                    st.session_state['autenticado'] = True
+                    st.session_state['cedula_actual'] = ced_actual_verif
+                    st.session_state['usuario_actual'] = nombre_usr
+                    st.session_state['rol_actual'] = rol_usr
+                    st.session_state['paso_verificacion_facial'] = False
+                    
+                    registrar_conexion_auditoria(nombre_usr, ced_actual_verif, "Conexión Biométrica Exitosa (>95%)", meta)
+                    st.success(f"✅ {mensaje_match} Acceso Autorizado.")
+                    time.sleep(0.8)
+                    st.rerun()
                 else:
-                    st.error("❌ Llave incorrecta. Utilice VIP-2026.")
+                    st.error(mensaje_match)
+                    st.error("⛔ ALERTA DE SEGURIDAD: El rostro frente a la cámara no coincide con el titular de la cédula ingresada.")
+            
+            if st.button("🔄 Volver a ingresar cédula"):
+                st.session_state['paso_verificacion_facial'] = False
+                st.rerun()
+                
         st.markdown("</div>", unsafe_allow_html=True)
         
     with col_l2:
         st.markdown("""
             <div class="cyber-card">
-                <h3>📝 ¿Nuevo Usuario?</h3>
-                <p style="color: #94a3b8; font-size: 0.95em;">Realice su registro completo con OCR y prueba de vida biométrica.</p>
+                <h3>📝 ¿Nuevo Operador?</h3>
+                <p style="color: #94a3b8; font-size: 0.95em;">Registre su cédula, documento y rostro por primera vez para habilitar su acceso biométrico seguro.</p>
                 <br>
         """, unsafe_allow_html=True)
         if st.button("Ir al Registro Biométrico ➡️", use_container_width=True):
@@ -409,46 +426,7 @@ elif not st.session_state['acceso_concedido']:
         st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
-elif not st.session_state['autenticado']:
-    st.markdown("""
-        <div style="text-align: center;">
-            <h2>👤 VERIFICACIÓN BIOMÉTRICA OBLIGATORIA</h2>
-            <p style="color: #38bdf8;">Confirme su identidad mediante escaneo facial para acceder al panel táctico.</p>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    op_existente = obtener_operador(st.session_state['cedula_actual'])
-    col_v1, col_v2 = st.columns([1, 1], gap="large")
-    
-    with col_v1:
-        st.markdown(f"""
-            <div class="cyber-card">
-                <p><b>Usuario:</b> <code>{op_existente.get('nombre') if op_existente else 'Usuario'}</code></p>
-                <p><b>Cédula:</b> <code>{st.session_state['cedula_actual']}</code></p>
-            </div>
-        """, unsafe_allow_html=True)
-        captura_login = st.camera_input("📸 Captura en Vivo (Óvalo Guía HUD)")
-        
-    with col_v2:
-        if captura_login:
-            bytes_img = captura_login.getvalue()
-            foto_reg = op_existente.get('foto') if op_existente else None
-            valido, msg = validar_rostro_biometrico_estricto(bytes_img, foto_reg)
-            if valido:
-                meta = obtener_metadatos_locales()
-                nombre_u = op_existente.get('nombre', 'Usuario')
-                rol_u = op_existente.get('rol', 'Operador')
-                st.session_state['autenticado'] = True
-                st.session_state['usuario_actual'] = nombre_u
-                st.session_state['rol_actual'] = rol_u
-                registrar_conexion_auditoria(nombre_u, st.session_state['cedula_actual'], "Conexión Biométrica Exitosa", meta)
-                st.success(msg)
-                time.sleep(0.3)
-                st.rerun()
-            else:
-                st.error(msg)
-    st.stop()
-
+# Si está autenticado, cargamos el menú táctico principal
 es_admin = (st.session_state['cedula_actual'] == CEDULA_ADMIN_MAESTRO)
 
 st.sidebar.markdown("""
@@ -482,6 +460,7 @@ if eleccion == "🚪 Cerrar Sesión":
     st.session_state['acceso_concedido'] = False
     st.session_state['autenticado'] = False
     st.session_state['cedula_actual'] = ""
+    st.session_state['paso_verificacion_facial'] = False
     st.rerun()
 
 # -----------------------------------------------------------------
