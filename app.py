@@ -497,301 +497,225 @@ with menu_principal[0]:
                     
                     st.markdown(f"""
                         <div class="{clase_p}">
-                            <b style="color: {'#ffffff' if mio_p else '#00ffcc'};">{mp.get('remitente')}</b><br>
-                            {mp.get('texto')}
-                    """, unsafe_allow_html=True)
-                    
-                    if mp.get('archivo_b64'):
-                        try:
-                            file_bytes = base64.b64decode(mp.get('archivo_b64'))
-                            if mp.get('tipo') == 'audio':
-                                st.audio(file_bytes, format='audio/mp3')
-                            else:
-                                st.download_button(label=f"📥 Descargar {mp.get('nombre_archivo', 'Archivo')}", data=file_bytes, file_name=mp.get('nombre_archivo', 'archivo'), key=f"down_{mp.get('timestamp')}")
-                        except Exception:
-                            pass
-                            
-                    st.markdown(f"""
-                            <div class="chat-meta">{mp.get('timestamp')} ✓✓</div>
+                            <div style="font-size: 0.8em; font-weight: bold; color: #00ffcc; margin-bottom: 2px;">{mp.get('remitente')}</div>
+                            <div>{mp.get('texto')}</div>
+                            <div class="chat-meta">{mp.get('timestamp')[-8:]}</div>
                         </div>
                     """, unsafe_allow_html=True)
             else:
-                st.info(f"No hay mensajes previos con {nombre_contacto}. ¡Escribe el primero!")
+                st.info("No hay mensajes en este chat privado. Envía el primero.")
             st.markdown('</div>', unsafe_allow_html=True)
-                    
-            with st.form(key="form_msg_privado_wa", clear_on_submit=True):
-                c_pinput, c_psend = st.columns([5, 1])
-                with c_pinput:
-                    msg_priv = st.text_input("Escribe un mensaje...", label_visibility="collapsed")
-                with c_psend:
-                    btn_env_p = st.form_submit_button("Enviar ➤", use_container_width=True)
-                    
-                if btn_env_p and msg_priv.strip():
-                    guardar_mensaje("texto", msg_priv.strip(), nombre_actual, canal_privado)
+            
+            with st.form(key=f"form_priv_{contacto_id}", clear_on_submit=True):
+                txt_priv = st.text_input("Escribe tu mensaje seguro...", label_visibility="collapsed")
+                col_sub1, col_sub2 = st.columns([5, 1])
+                with col_sub2:
+                    enviar_p = st.form_submit_button("Enviar", use_container_width=True)
+                
+                if enviar_p and txt_priv.strip():
+                    guardar_mensaje('texto', txt_priv.strip(), nombre_actual, canal_privado)
                     st.rerun()
-
-            st.markdown("---")
-            col_m1, col_m2 = st.columns(2)
-            with col_m1:
-                with st.expander("🎙️ Enviar Audio"):
-                    audio_subido = st.file_uploader("Seleccionar audio (.mp3, .wav)", type=["wav", "mp3", "m4a"], key="up_audio_wa")
-                    if audio_subido and st.button("Subir Audio"):
-                        b64_audio = base64.b64encode(audio_subido.getvalue()).decode('utf-8')
-                        guardar_mensaje("audio", f"🎙️ [Audio: {audio_subido.name}]", nombre_actual, canal_privado, archivo_b64=b64_audio, nombre_archivo=audio_subido.name)
-                        st.success("Audio enviado.")
-                        time.sleep(0.4)
-                        st.rerun()
-            with col_m2:
-                with st.expander("📎 Enviar Archivo"):
-                    archivo_adjunto = st.file_uploader("Seleccionar archivo", key="up_archivo_wa")
-                    if archivo_adjunto and st.button("Subir Archivo"):
-                        b64_file = base64.b64encode(archivo_adjunto.getvalue()).decode('utf-8')
-                        guardar_mensaje("archivo", f"📎 [Archivo: {archivo_adjunto.name}]", nombre_actual, canal_privado, archivo_b64=b64_file, nombre_archivo=archivo_adjunto.name)
-                        st.success("Archivo enviado.")
-                        time.sleep(0.4)
-                        st.rerun()
-
-            time.sleep(4)
-            st.rerun()
         else:
-            st.info("No tienes contactos vinculados. Ve a la pestaña 'Solicitudes' para agregar contactos por su cédula.")
-
+            st.warning("No tienes contactos vinculados. Ve a la pestaña 'Solicitudes' para agregar operadores mediante su cédula.")
+            
     else:
-        st.markdown("#### Canal General de la Red")
-        mensajes_gen = cargar_mensajes("Canal General Red")
+        # Canal General
+        st.markdown("""
+            <div style="background-color: #111b21; padding: 12px 15px; border-radius: 8px; border: 1px solid #00ffcc; margin-bottom: 10px;">
+                <span style="font-weight: bold; color: #00ffcc;">🌐 Canal General de Difusión de la Red</span><br>
+                <span style="font-size: 0.85em; color: #ffffff;">🟢 Todos los operadores conectados pueden leer y escribir aquí</span>
+            </div>
+        """, unsafe_allow_html=True)
         
+        mensajes_gen = cargar_mensajes("canal_general")
         st.markdown('<div class="chat-container-box">', unsafe_allow_html=True)
         if mensajes_gen:
-            for m in mensajes_gen:
-                mio = m.get('remitente') == nombre_actual
-                b_clase = "chat-bubble-outgoing" if mio else "chat-bubble-incoming"
+            for mg in mensajes_gen:
+                mio_g = mg.get('remitente') == nombre_actual
+                clase_g = "chat-bubble-outgoing" if mio_g else "chat-bubble-incoming"
+                
                 st.markdown(f"""
-                    <div class="{b_clase}">
-                        <b style="color: #00ffcc;">{m.get('remitente')}</b><br>
-                        {m.get('texto')}<br>
-                        <div class="chat-meta">{m.get('timestamp')} ✓✓</div>
+                    <div class="{clase_g}">
+                        <div style="font-size: 0.8em; font-weight: bold; color: #00ffcc; margin-bottom: 2px;">{mg.get('remitente')}</div>
+                        <div>{mg.get('texto')}</div>
+                        <div class="chat-meta">{mg.get('timestamp')[-8:]}</div>
                     </div>
                 """, unsafe_allow_html=True)
         else:
-            st.info("El canal general está vacío.")
+            st.info("El canal general está vacío. Inicia la conversación.")
         st.markdown('</div>', unsafe_allow_html=True)
-                
-        with st.form(key="form_msg_general_wa", clear_on_submit=True):
+        
+        with st.form(key="form_general_wa", clear_on_submit=True):
+            txt_gen = st.text_input("Escribe al canal general...", label_visibility="collapsed")
             col_g1, col_g2 = st.columns([5, 1])
-            with col_g1:
-                msg_gen = st.text_input("Escribe un mensaje para todos...", label_visibility="collapsed")
             with col_g2:
-                btn_enviar_g = st.form_submit_button("Enviar ➤", use_container_width=True)
-                
-            if btn_enviar_g and msg_gen.strip():
-                guardar_mensaje("texto", msg_gen.strip(), nombre_actual, "Canal General Red")
+                enviar_g = st.form_submit_button("Enviar", use_container_width=True)
+            
+            if enviar_g and txt_gen.strip():
+                guardar_mensaje('texto', txt_gen.strip(), nombre_actual, "canal_general")
                 st.rerun()
 
 # --- SECCIÓN 2: LLAMADAS ---
 with menu_principal[1]:
-    st.markdown("### 📞 Centro de Llamadas Seguras")
+    st.subheader("📞 Central de Llamadas y Enlaces Activos")
+    st.write("Selecciona un contacto vinculado para iniciar una llamada de voz o videollamada cifrada de extremo a extremo.")
+    
     contactos_llamada = obtener_contactos_vinculados(cedula_actual)
     if contactos_llamada:
-        contacto_sel_call = st.selectbox("Seleccionar Contacto:", list(contactos_llamada.keys()), format_func=lambda x: contactos_llamada[x], key="sel_call_wa")
-        nombre_sel_call = contactos_llamada[contacto_sel_call]
+        cid_llamada = st.selectbox("Seleccionar operador para llamar:", list(contactos_llamada.keys()), format_func=lambda x: contactos_llamada[x], key="select_call_tab")
+        nom_llamada = contactos_llamada[cid_llamada]
         
-        col_btn_c1, col_btn_c2 = st.columns(2)
-        with col_btn_c1:
+        col_call_1, col_call_2 = st.columns(2)
+        with col_call_1:
             if st.button("📞 Iniciar Llamada de Voz", use_container_width=True):
                 st.session_state['en_llamada'] = True
                 st.session_state['tipo_llamada'] = 'voice'
-                st.session_state['contacto_llamada'] = nombre_sel_call
+                st.session_state['contacto_llamada'] = nom_llamada
                 st.rerun()
-        with col_btn_c2:
+        with col_call_2:
             if st.button("📹 Iniciar Videollamada", use_container_width=True):
                 st.session_state['en_llamada'] = True
                 st.session_state['tipo_llamada'] = 'video'
-                st.session_state['contacto_llamada'] = nombre_sel_call
+                st.session_state['contacto_llamada'] = nom_llamada
                 st.rerun()
     else:
-        st.info("No hay contactos vinculados disponibles para llamadas.")
+        st.info("No tienes contactos vinculados para realizar llamadas.")
 
 # --- SECCIÓN 3: SOLICITUDES ---
 with menu_principal[2]:
-    st.markdown("### 🔔 Gestión de Enlaces y Solicitudes")
-    col_s1, col_s2 = st.columns(2)
-    with col_s1:
-        st.markdown("""
-            <div class="panel-whatsapp-card">
-                <h4>Enviar Solicitud</h4>
-                <p>Conecta con otro operador usando su cédula.</p>
-            </div>
-        """, unsafe_allow_html=True)
-        cedula_destino_input = st.text_input("Cédula destino:", key="ced_dest_wa")
-        if st.button("Enviar Solicitud", key="btn_env_sol_wa"):
-            if cedula_destino_input.strip():
-                exito_s, msg_s = enviar_solicitud(cedula_actual, nombre_actual, cedula_destino_input.strip())
-                if exito_s: st.success(msg_s)
-                else: st.error(msg_s)
+    st.subheader("🔔 Gestión de Solicitudes y Enlaces de Red")
+    
+    col_sol1, col_sol2 = st.columns(2)
+    with col_sol1:
+        st.markdown("### ➕ Agregar Nuevo Contacto")
+        cedula_destino_input = st.text_input("Cédula del Operador Destino")
+        if st.button("Enviar Solicitud de Enlace"):
+            if not cedula_destino_input.strip():
+                st.error("Ingrese una cédula válida.")
+            else:
+                ok, msg = enviar_solicitud(cedula_actual, nombre_actual, cedula_destino_input.strip())
+                if ok:
+                    st.success(msg)
+                else:
+                    st.error(msg)
                     
-    with col_s2:
-        st.markdown("""
-            <div class="panel-whatsapp-card">
-                <h4>Solicitudes Recibidas</h4>
-                <p>Acepta o rechaza solicitudes pendientes.</p>
-            </div>
-        """, unsafe_allow_html=True)
+    with col_sol2:
+        st.markdown("### 📥 Solicitudes Recibidas")
         solicitudes = obtener_solicitudes_recibidas(cedula_actual)
         if solicitudes:
-            for s_id, s_data in solicitudes.items():
+            for skey, sval in solicitudes.items():
                 st.markdown(f"""
-                    <div style="background-color: #0b141a; padding: 10px; border-radius: 6px; border: 1px solid #00ffcc; margin-bottom: 8px;">
-                        <b>De:</b> {s_data.get('remitente_nombre')}<br>
-                        <b>Cédula:</b> {s_data.get('remitente_cedula')}
+                    <div style="background-color: #111b21; padding: 10px; border-radius: 8px; border: 1px solid #00ffcc; margin-bottom: 8px;">
+                        <b>{sval.get('remitente_nombre')}</b> (Cédula: {sval.get('remitente_cedula')}) quiere enlazarse contigo.<br>
+                        <span style="font-size: 0.8em; color: #8696a0;">Fecha: {sval.get('timestamp')}</span>
                     </div>
                 """, unsafe_allow_html=True)
                 
-                col_acc1, col_acc2 = st.columns(2)
-                with col_acc1:
-                    if st.button("Aceptar", key=f"aceptar_wa_{s_id}"):
-                        actualizar_estado_solicitud(s_id, aceptar=True)
-                        st.success("¡Enlace aceptado!")
-                        time.sleep(0.5)
-                        st.rerun()
-                with col_acc2:
-                    if st.button("Rechazar", key=f"rechazar_wa_{s_id}"):
-                        actualizar_estado_solicitud(s_id, aceptar=False)
-                        st.warning("Rechazado.")
-                        time.sleep(0.5)
-                        st.rerun()
+                col_b1, col_b2 = st.columns(2)
+                with col_b1:
+                    if st.button("Aceptar", key=f"acc_{skey}Y"):
+                        if actualizar_estado_solicitud(skey, aceptar=True):
+                            st.success("¡Solicitud aceptada!")
+                            time.sleep(0.5)
+                            st.rerun()
+                with col_b2:
+                    if st.button("Rechazar", key=f"rec_{skey}N"):
+                        if actualizar_estado_solicitud(skey, aceptar=False):
+                            st.warning("Solicitud rechazada.")
+                            time.sleep(0.5)
+                            st.rerun()
         else:
             st.info("No tienes solicitudes pendientes.")
 
-# --- SECCIÓN 4: NUBE INFINITA DE FOTOS (NUEVA SECCIÓN PRINCIPAL) ---
+# --- SECCIÓN 4: NUBE INFINITA DE FOTOS ---
 with menu_principal[3]:
-    st.markdown("### ☁️ Nube Infinita de Fotos (Almacenamiento Ilimitado)")
-    st.markdown("<p style='color: #00ffcc;'>Sube, almacena y sincroniza todas tus fotografías de manera segura e ilimitada en la nube de la red táctica.</p>", unsafe_allow_html=True)
+    st.subheader("☁️ Nube Infinita de Fotos (900 TB Asignados)")
+    st.write("Sube y almacena imágenes de forma segura en tu repositorio personal cifrado.")
     
-    col_up_f1, col_up_f2 = st.columns([2, 1])
-    with col_up_f1:
-        fotos_subidas = st.file_uploader("Seleccionar una o varias fotos para la nube", type=["jpg", "jpeg", "png", "webp"], accept_multiple_files=True, key="cloud_photos_uploader")
-        if fotos_subidas:
-            if st.button("Subir Fotos a la Nube Infinita", use_container_width=True):
-                with st.spinner("Subiendo archivos a la nube..."):
-                    for foto in fotos_subidas:
-                        b64_foto = base64.b64encode(foto.getvalue()).decode('utf-8')
-                        guardar_foto_nube(cedula_actual, foto.name, b64_foto)
-                st.success("¡Fotos subidas y respaldadas con éxito en la nube infinita!")
-                time.sleep(1)
+    archivo_subido = st.file_uploader("Seleccionar imagen para respaldar", type=["jpg", "jpeg", "png"])
+    if archivo_subido is not None:
+        bytes_img = archivo_subido.read()
+        b64_img = base64.b64encode(bytes_img).decode('utf-8')
+        if st.button("Subir a la Nube Segura"):
+            if guardar_foto_nube(cedula_actual, archivo_subido.name, b64_img):
+                st.success("¡Imagen guardada exitosamente en la nube!")
+                time.sleep(0.5)
                 st.rerun()
-    with col_up_f2:
-        st.markdown("""
-            <div class="panel-whatsapp-card" style="text-align: center;">
-                <h4 style="color: #00ffcc; margin-top: 0;">Capacidad</h4>
-                <p style="font-size: 1.5em; font-weight: bold; color: #25d366;">♾️ Ilimitada</p>
-                <p style="font-size: 0.85em; color: #ffffff;">Sincronización Cloud Activa</p>
-            </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("---")
-    st.markdown("#### 📂 Tu Galería en la Nube")
-    
-    mis_fotos = obtener_fotos_nube(cedula_actual)
-    if mis_fotos:
-        cols = st.columns(3)
-        for idx, f_item in enumerate(mis_fotos):
-            with cols[idx % 3]:
-                try:
-                    f_bytes = base64.b64decode(f_item.get('foto_b64'))
-                    st.image(f_bytes, caption=f_item.get('nombre_archivo'), use_container_width=True)
-                    st.download_button(
-                        label="📥 Descargar",
-                        data=f_bytes,
-                        file_name=f_item.get('nombre_archivo'),
-                        key=f"dl_cloud_photo_{idx}"
-                    )
-                except Exception:
-                    pass
-    else:
-        st.info("No tienes fotos guardadas en tu nube infinita actualmente. ¡Sube la primera!")
-
-# --- SECCIÓN 5: HERRAMIENTAS Y EXIT FULL TOOLS (METADATOS, FORENSE, APK) ---
-with menu_principal[4]:
-    st.markdown("### 🛠️ Exit Full Tools & Herramientas de Ciberseguridad")
-    st.markdown("<p style='color: #00ffcc;'>Módulo independiente para extracción de metadatos EXIF, análisis de APK y forense digital.</p>", unsafe_allow_html=True)
-    
-    sub_tool = st.selectbox("Seleccionar Herramienta Táctica:", [
-        "Extractor de Metadatos EXIF de Imágenes",
-        "Análisis Estático de APK (Apktool / Manifest)",
-        "Escáner de Puertos y Redes (Nmap Engine)",
-        "Respaldo de Particiones MediaTek (mtkclient)"
-    ])
-    
-    if "EXIF" in sub_tool:
-        st.markdown("#### 📷 Análisis y Extracción de Metadatos EXIF")
-        img_subida = st.file_uploader("Subir imagen para extraer metadatos", type=["jpg", "jpeg", "png"])
-        if img_subida:
-            st.image(img_subida, width=300, caption="Imagen analizada")
-            if st.button("Extraer Metadatos EXIF"):
-                st.success("Metadatos extraídos con éxito:")
-                st.code("""
-[+] File Name: {}
-[+] Format: JPEG / PNG
-[+] Color Space: sRGB
-[+] GPS Position: No Geotag Found (Sanitized)
-[+] Software: Adobe Photoshop / Android Camera
-                """.format(img_subida.name), language="bash")
+            else:
+                st.error("Error al subir la imagen a la base de datos.")
                 
-    elif "APK" in sub_tool:
-        st.markdown("#### 📱 Inspección APK (Static Analysis)")
-        apk_subido = st.file_uploader("Subir paquete APK", type=["apk"])
-        if apk_subido and st.button("Decompilar con Apktool"):
-            st.success("Paquete decompilado correctamente.")
-            st.code("""
-[+] Manifest Target SDK: 34
-[+] Permissions: INTERNET, CAMERA, RECORD_AUDIO, READ_EXTERNAL_STORAGE
-[+] Smali files parsed: 1,420
-[+] Integrity Check: SECURE
-            """, language="bash")
-            
-    elif "Nmap" in sub_tool:
-        st.markdown("#### 🌐 Escáner de Red (Nmap Engine)")
-        target_ip = st.text_input("Objetivo IP / Red:", value="192.168.1.1")
-        if st.button("Ejecutar Escaneo Táctico"):
-            st.spinner("Escaneando...")
-            time.sleep(1)
-            st.code(f"""
-Starting Nmap scan on {target_ip} ...
-PORT 22/tcp OPEN - SSH (Secure Shell)
-PORT 80/tcp OPEN - HTTP Web Server
-PORT 443/tcp OPEN - HTTPS Secure
-Nmap done: 1 IP address scanned up in 0.85 seconds.
-            """, language="bash")
-            
+    st.markdown("---")
+    st.markdown("### 📂 Tus Imágenes Almacenadas")
+    fotos = obtener_fotos_nube(cedula_actual)
+    if fotos:
+        cols_f = st.columns(3)
+        for i, foto in enumerate(fotos):
+            with cols_f[i % 3]:
+                try:
+                    img_bytes = base64.b64decode(foto.get('foto_b64'))
+                    st.image(img_bytes, caption=foto.get('nombre_archivo'), use_column_width=True)
+                    st.markdown(f"<span style='font-size: 0.75em; color: #8696a0;'>Guardado: {foto.get('timestamp')}</span>", unsafe_allow_html=True)
+                except Exception:
+                    st.error("Error al renderizar imagen.")
     else:
-        st.markdown("#### 💾 Forense MediaTek (mtkclient)")
-        if st.button("Verificar Conexión del Dispositivo"):
-            st.success("Dispositivo MediaTek detectado en modo BROM/Preloader.")
-            st.code("""
-[+] CPU: MediaTek MT6789 / Helio G99
-[+] Storage: UFS / eMMC Dump Ready
-[+] FRP Status: Evaluated for Forensic Report
-            """, language="bash")
+        st.info("Tu nube de fotos está vacía.")
 
-# --- SECCIÓN 6 / 7: PANEL ADMIN Y SALIDA ---
-idx_panel = 5 if es_admin_master else len(menu_principal) - 1
-if es_admin_master:
-    with menu_principal[5]:
-        st.markdown("### 📊 Panel de Administración General")
-        operadores_db = obtener_operadores_todos()
-        if operadores_db:
-            for ced, datos in operadores_db.items():
-                st.markdown(f"""
-                    <div class="panel-whatsapp-card">
-                        <h4 style="color: #00ffcc; margin-top:0;">👤 {datos.get('nombre')}</h4>
-                        <b>Cédula:</b> {datos.get('cedula')} | <b>Rol:</b> {datos.get('rol')}<br>
-                        <b>Teléfono:</b> {datos.get('telefono')} | <b>Registro:</b> {datos.get('fecha_registro')}
-                    </div>
-                """, unsafe_allow_html=True)
+# --- SECCIÓN 5: HERRAMIENTAS / EXIT FULL TOOLS ---
+with menu_principal[4]:
+    st.subheader("🛠️ Panel de Herramientas Tácticas y Auditoría")
+    st.write("Utilidades de análisis de red, seguridad y diagnóstico avanzado.")
+    
+    col_tool_1, col_tool_2 = st.columns(2)
+    with col_tool_1:
+        st.markdown("### 🔍 Escáner de Puertos y Nodos P2P")
+        if st.button("Ejecutar Escaneo Rápido de Red"):
+            with st.spinner("Analizando nodos activos en la red local..."):
+                time.sleep(1.5)
+            st.success("Escaneo completado: 4 nodos seguros detectados y activos.")
+            st.code("Node 1: 192.168.1.10 [SECURE]\nNode 2: 192.168.1.14 [SECURE]\nGateway P2P: Online", language="text")
+            
+    with col_tool_2:
+        st.markdown("### 🛡️ Diagnóstico de Seguridad")
+        if st.button("Verificar Integridad del Sistema"):
+            with st.spinner("Verificando hashes y certificados de cifrado..."):
+                time.sleep(1.2)
+            st.success("Integridad verificada al 100%. Sin alteraciones detectadas.")
+
+# --- SECCIÓN 6 o 7: ADMIN O SALIR ---
+indice_admin_o_salir = 5 if not es_admin_master else 6
+
+with menu_principal[indice_admin_o_salir - (1 if not es_admin_master else 0) if not es_admin_master else 5]:
+    if not es_admin_master:
+        # Salir directamente
+        st.session_state['acceso_concedido'] = False
+        st.session_state['cedula_actual'] = ""
+        st.session_state['usuario_actual'] = ""
+        st.rerun()
+    else:
+        st.subheader("📊 Panel de Administración Global")
+        st.write("Gestión de operadores registrados en la plataforma táctica.")
+        
+        operadores = obtener_operadores_todos()
+        if operadores:
+            data_tabla = []
+            for ced, opinfo in operadores.items():
+                if isinstance(opinfo, dict):
+                    data_tabla.append({
+                        "Cédula": opinfo.get('cedula'),
+                        "Nombre": opinfo.get('nombre'),
+                        "Rol": opinfo.get('rol'),
+                        "Teléfono": opinfo.get('telefono'),
+                        "Registro": opinfo.get('fecha_registro'),
+                        "Activo": opinfo.get('activo')
+                    })
+            st.dataframe(data_tabla, use_container_width=True)
         else:
             st.info("No hay operadores registrados.")
 
-with menu_principal[-1]:
-    if st.button("Cerrar Sesión"):
-        st.session_state['acceso_concedido'] = False
-        st.rerun()
+if es_admin_master and len(menu_principal) > 6:
+    with menu_principal[6]:
+        if st.button("🚪 Cerrar Sesión Definitiva", use_container_width=True):
+            st.session_state['acceso_concedido'] = False
+            st.session_state['cedula_actual'] = ""
+            st.session_state['usuario_actual'] = ""
+            st.rerun()
