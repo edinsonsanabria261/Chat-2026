@@ -644,22 +644,45 @@ with menu_principal[2]:
         else:
             st.info("No tienes solicitudes pendientes.")
 
-# --- SECCIÓN 4: NUBE INFINITA DE FOTOS (OPTIMIZADA Y LIMPIA) ---
+# --- SECCIÓN 4: NUBE INFINITA DE FOTOS (OPTIMIZADA CON PERSISTENCIA DE SESIÓN) ---
 with menu_principal[3]:
     st.subheader("☁️ Nube Infinita de Fotos (900 TB Asignados)")
     st.write("Sube y almacena imágenes de forma segura en tu repositorio personal cifrado.")
     
-    archivo_subido = st.file_uploader("Seleccionar imagen para respaldar", type=["jpg", "jpeg", "png"])
+    # Inicializar estado temporal para la foto cargada
+    if 'temp_foto_b64' not in st.session_state:
+        st.session_state['temp_foto_b64'] = None
+    if 'temp_nombre_archivo' not in st.session_state:
+        st.session_state['temp_nombre_archivo'] = None
+
+    archivo_subido = st.file_uploader("Seleccionar imagen para respaldar", type=["jpg", "jpeg", "png"], key="uploader_foto_nube")
+    
     if archivo_subido is not None:
+        # Capturamos los bytes inmediatamente y los guardamos en session_state para que no se borren al hacer clic
         bytes_img = archivo_subido.read()
-        b64_img = base64.b64encode(bytes_img).decode('utf-8')
-        if st.button("Subir a la Nube Segura"):
-            if guardar_foto_nube(cedula_actual, archivo_subido.name, b64_img):
-                st.success("¡Imagen guardada exitosamente en la nube!")
-                time.sleep(0.5)
-                st.rerun()
-            else:
-                st.error("Error al subir la imagen a la base de datos.")
+        st.session_state['temp_foto_b64'] = base64.b64encode(bytes_img).decode('utf-8')
+        st.session_state['temp_nombre_archivo'] = archivo_subido.name
+
+    # Si ya hay una imagen cargada en memoria, mostramos la vista previa y el botón de subida definitiva
+    if st.session_state['temp_foto_b64']:
+        st.success(f"Imagen lista para enviar: **{st.session_state['temp_nombre_archivo']}**")
+        
+        if st.button("🚀 Confirmar y Subir a la Nube Segura", use_container_width=True):
+            with st.spinner("Subiendo imagen cifrada a Firebase..."):
+                exito = guardar_foto_nube(
+                    cedula_actual, 
+                    st.session_state['temp_nombre_archivo'], 
+                    st.session_state['temp_foto_b64']
+                )
+                if exito:
+                    st.success("¡Imagen guardada exitosamente en la nube!")
+                    # Limpiamos la memoria temporal
+                    st.session_state['temp_foto_b64'] = None
+                    st.session_state['temp_nombre_archivo'] = None
+                    time.sleep(0.8)
+                    st.rerun()
+                else:
+                    st.error("Error al subir la imagen a la base de datos.")
                 
     st.markdown("---")
     
@@ -675,6 +698,7 @@ with menu_principal[3]:
             else:
                 st.error("No se pudo limpiar el repositorio.")
     
+    # Recuperar y renderizar las fotos desde Firebase
     fotos = obtener_fotos_nube(cedula_actual)
     if fotos:
         cols_f = st.columns(3)
@@ -696,9 +720,10 @@ with menu_principal[3]:
                 continue
                 
         if renderizadas == 0:
-            st.info("No hay imágenes válidas almacenadas. Sube una nueva imagen limpia arriba o usa el botón 'Limpiar Repositorio'.")
+            st.info("No hay imágenes válidas para mostrar. Prueba subiendo una nueva imagen.")
     else:
         st.info("Tu nube de fotos está vacía.")
+
 
 # --- SECCIÓN 5: HERRAMIENTAS ---
 with menu_principal[4]:
