@@ -262,7 +262,7 @@ def guardar_mensaje(tipo, texto, remitente, canal, archivo_b64=None, nombre_arch
     except Exception:
         return False
 
-# Funciones optimizadas para la Nube Infinita de Fotos
+# Funciones de la Nube Infinita de Fotos (Actualizadas y Robustas)
 def guardar_foto_nube(cedula, nombre_archivo, foto_b64):
     payload = {
         'cedula_operador': cedula,
@@ -271,8 +271,8 @@ def guardar_foto_nube(cedula, nombre_archivo, foto_b64):
         'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
     }
     try:
-        requests.post(f"{FIREBASE_URL}/nube_fotos/{cedula}.json", data=json.dumps(payload), timeout=3.0)
-        return True
+        res = requests.post(f"{FIREBASE_URL}/nube_fotos/{cedula}.json", data=json.dumps(payload), timeout=3.0)
+        return res.status_code == 200
     except Exception:
         return False
 
@@ -281,13 +281,29 @@ def obtener_fotos_nube(cedula):
         res = requests.get(f"{FIREBASE_URL}/nube_fotos/{cedula}.json", timeout=3.0)
         if res.status_code == 200 and res.json():
             data = res.json()
+            lista_fotos = []
             if isinstance(data, dict):
-                # Retorna lista ordenada de más reciente a más antigua
-                lista_fotos = list(data.values())
-                return sorted(lista_fotos, key=lambda x: x.get('timestamp', ''), reverse=True)
+                for k, v in data.items():
+                    if isinstance(v, dict):
+                        if 'foto_b64' in v and v.get('foto_b64'):
+                            v['firebase_key'] = k
+                            lista_fotos.append(v)
+                        else:
+                            for sub_k, sub_v in v.items():
+                                if isinstance(sub_v, dict) and sub_v.get('foto_b64'):
+                                    sub_v['firebase_key'] = f"{k}/{sub_k}"
+                                    lista_fotos.append(sub_v)
+            return sorted(lista_fotos, key=lambda x: x.get('timestamp', ''), reverse=True)
     except Exception:
         pass
     return []
+
+def limpiar_nube_corrupta(cedula):
+    try:
+        requests.delete(f"{FIREBASE_URL}/nube_fotos/{cedula}.json", timeout=3.0)
+        return True
+    except Exception:
+        return False
 
 # -----------------------------------------------------------------
 # GESTIÓN DE ESTADOS DE SESIÓN
@@ -628,7 +644,7 @@ with menu_principal[2]:
         else:
             st.info("No tienes solicitudes pendientes.")
 
-# --- SECCIÓN 4: NUBE INFINITA DE FOTOS (OPTIMIZADA) ---
+# --- SECCIÓN 4: NUBE INFINITA DE FOTOS (OPTIMIZADA Y LIMPIA) ---
 with menu_principal[3]:
     st.subheader("☁️ Nube Infinita de Fotos (900 TB Asignados)")
     st.write("Sube y almacena imágenes de forma segura en tu repositorio personal cifrado.")
@@ -663,7 +679,7 @@ with menu_principal[3]:
     if fotos:
         cols_f = st.columns(3)
         renderizadas = 0
-        for i, foto in enumerate(fotos):
+        for foto in fotos:
             b64_data = foto.get('foto_b64', '')
             if not b64_data:
                 continue
@@ -677,11 +693,10 @@ with menu_principal[3]:
                     st.markdown(f"<span style='font-size: 0.75em; color: #8696a0;'>Guardado: {foto.get('timestamp', '')}</span>", unsafe_allow_html=True)
                 renderizadas += 1
             except Exception:
-                # Omitimos silenciosamente cualquier elemento corrupto para no saturar la pantalla con errores
                 continue
                 
         if renderizadas == 0:
-            st.info("No hay imágenes válidas almacenadas. Sube una nueva imagen limpia arriba.")
+            st.info("No hay imágenes válidas almacenadas. Sube una nueva imagen limpia arriba o usa el botón 'Limpiar Repositorio'.")
     else:
         st.info("Tu nube de fotos está vacía.")
 
