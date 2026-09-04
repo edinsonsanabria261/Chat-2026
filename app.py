@@ -152,21 +152,25 @@ def obtener_operadores_todos():
     except Exception:
         pass
     return {}
-
 def registrar_operador(cedula, nombre, apellido, rol, telefono, codigo_pin):
     nombre_completo = f"{nombre} {apellido}"
     payload = {
-        'nombre': nombre_completo, 'cedula': cedula, 'rol': rol, 
-        'telefono': telefono, 'codigo_pin': codigo_pin,
+        'nombre': nombre_completo, 
+        'cedula': cedula, 
+        'rol': rol, 
+        'telefono': telefono, 
+        'codigo_pin': codigo_pin,
         'fecha_registro': time.strftime("%Y-%m-%d %H:%M:%S"),
         'activo': True,
         'almacenamiento_asignado_tb': 900
     }
     try:
-        res = requests.put(f"{FIREBASE_URL}/operadores/{cedula}.json", data=json.dumps(payload), timeout=2.5)
-        return res.status_code == 200
-    except Exception:
+        # Usamos patch o put asegurando la serialización exacta a JSON
+        res = requests.put(f"{FIREBASE_URL}/operadores/{cedula}.json", data=json.dumps(payload), timeout=5.0)
+        return res.status_code in [200, 201]
+    except Exception as e:
         return False
+
 
 def enviar_solicitud(cedula_origen, nombre_origen, cedula_destino):
     op_destino = obtener_operador(cedula_destino)
