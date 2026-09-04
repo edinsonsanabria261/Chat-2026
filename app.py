@@ -308,22 +308,26 @@ def limpiar_nube_corrupta(cedula):
         return True
     except Exception:
         return False
+# -----------------------------------------------------------------
+# GESTIÓN DE ESTADOS DE SESIÓN (PERSISTENTES)
+# -----------------------------------------------------------------
+if 'acceso_concedido' not in st.session_state:
+    st.session_state['acceso_concedido'] = False
+if 'usuario_actual' not in st.session_state:
+    st.session_state['usuario_actual'] = ""
+if 'rol_actual' not in st.session_state:
+    st.session_state['rol_actual'] = ""
+if 'cedula_actual' not in st.session_state:
+    st.session_state['cedula_actual'] = ""
+if 'modo_registro' not in st.session_state:
+    st.session_state['modo_registro'] = False
+if 'en_llamada' not in st.session_state:
+    st.session_state['en_llamada'] = False
+if 'tipo_llamada' not in st.session_state:
+    st.session_state['tipo_llamada'] = None
+if 'contacto_llamada' not in st.session_state:
+    st.session_state['contacto_llamada'] = None
 
-# -----------------------------------------------------------------
-# GESTIÓN DE ESTADOS DE SESIÓN
-# -----------------------------------------------------------------
-for key, val in {
-    'acceso_concedido': False,
-    'usuario_actual': "",
-    'rol_actual': "",
-    'cedula_actual': "",
-    'modo_registro': False,
-    'en_llamada': False,
-    'tipo_llamada': None,
-    'contacto_llamada': None
-}.items():
-    if key not in st.session_state:
-        st.session_state[key] = val
 
 # -----------------------------------------------------------------
 # PANTALLA DE REGISTRO
@@ -368,7 +372,7 @@ if st.session_state.get('modo_registro', False):
 # -----------------------------------------------------------------
 # PANTALLA DE LOGIN
 # -----------------------------------------------------------------
-elif not st.session_state.get('acceso_concedido', False):
+if not st.session_state['acceso_concedido'] and not st.session_state.get('modo_registro', False):
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("""
         <div class="panel-whatsapp-card" style="max-width: 450px; margin: auto; text-align: center;">
@@ -383,18 +387,19 @@ elif not st.session_state.get('acceso_concedido', False):
         with st.form("form_login_wa"):
             cedula_log = st.text_input("Cédula de Identidad")
             pin_log = st.text_input("PIN de Seguridad", type="password")
-            if st.form_submit_button("Entrar al Sistema", use_container_width=True):
+            btn_entrar = st.form_submit_button("Entrar al Sistema", use_container_width=True)
+            
+            if btn_entrar:
                 if not cedula_log.strip() or not pin_log.strip():
                     st.error("Ingrese su cédula y PIN.")
                 else:
                     op = obtener_operador(cedula_log.strip())
-                    if op and op.get('codigo_pin') == pin_log.strip():
+                    if op and str(op.get('codigo_pin')) == str(pin_log.strip()):
                         st.session_state['acceso_concedido'] = True
-                        st.session_state['cedula_actual'] = op.get('cedula')
+                        st.session_state['cedula_actual'] = str(op.get('cedula'))
                         st.session_state['usuario_actual'] = op.get('nombre')
                         st.session_state['rol_actual'] = op.get('rol')
                         st.success(f"Bienvenido, {op.get('nombre')}")
-                        time.sleep(0.5)
                         st.rerun()
                     else:
                         st.error("Credenciales incorrectas o cédula no encontrada.")
@@ -404,6 +409,7 @@ elif not st.session_state.get('acceso_concedido', False):
             st.session_state['modo_registro'] = True
             st.rerun()
     st.stop()
+
 
 # -----------------------------------------------------------------
 # PANTALLA DE LLAMADA O VIDEOLLAMADA
