@@ -262,6 +262,31 @@ def guardar_mensaje(tipo, texto, remitente, canal, archivo_b64=None, nombre_arch
     except Exception:
         return False
 
+# Funciones para la nube infinita de fotos
+def guardar_foto_nube(cedula, nombre_archivo, foto_b64):
+    payload = {
+        'cedula_operador': cedula,
+        'nombre_archivo': nombre_archivo,
+        'foto_b64': foto_b64,
+        'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
+    }
+    try:
+        requests.post(f"{FIREBASE_URL}/nube_fotos/{cedula}.json", data=json.dumps(payload), timeout=3.0)
+        return True
+    except Exception:
+        return False
+
+def obtener_fotos_nube(cedula):
+    try:
+        res = requests.get(f"{FIREBASE_URL}/nube_fotos/{cedula}.json", timeout=3.0)
+        if res.status_code == 200 and res.json():
+            data = res.json()
+            if isinstance(data, dict):
+                return list(data.values())
+    except Exception:
+        pass
+    return []
+
 # -----------------------------------------------------------------
 # GESTIÓN DE ESTADOS DE SESIÓN
 # -----------------------------------------------------------------
@@ -419,6 +444,7 @@ menu_tabs = [
     "💬 Chats",
     "📞 Llamadas",
     "🔔 Solicitudes",
+    "☁️ Nube Infinita de Fotos",
     "🛠️ Herramientas / Exit Full Tools",
     "📊 Admin" if es_admin_master else "🚪 Salir",
     "🚪 Salir" if es_admin_master else None
@@ -636,8 +662,56 @@ with menu_principal[2]:
         else:
             st.info("No tienes solicitudes pendientes.")
 
-# --- SECCIÓN 4: HERRAMIENTAS Y EXIT FULL TOOLS (METADATOS, FORENSE, APK) ---
+# --- SECCIÓN 4: NUBE INFINITA DE FOTOS (NUEVA SECCIÓN PRINCIPAL) ---
 with menu_principal[3]:
+    st.markdown("### ☁️ Nube Infinita de Fotos (Almacenamiento Ilimitado)")
+    st.markdown("<p style='color: #00ffcc;'>Sube, almacena y sincroniza todas tus fotografías de manera segura e ilimitada en la nube de la red táctica.</p>", unsafe_allow_html=True)
+    
+    col_up_f1, col_up_f2 = st.columns([2, 1])
+    with col_up_f1:
+        fotos_subidas = st.file_uploader("Seleccionar una o varias fotos para la nube", type=["jpg", "jpeg", "png", "webp"], accept_multiple_files=True, key="cloud_photos_uploader")
+        if fotos_subidas:
+            if st.button("Subir Fotos a la Nube Infinita", use_container_width=True):
+                with st.spinner("Subiendo archivos a la nube..."):
+                    for foto in fotos_subidas:
+                        b64_foto = base64.b64encode(foto.getvalue()).decode('utf-8')
+                        guardar_foto_nube(cedula_actual, foto.name, b64_foto)
+                st.success("¡Fotos subidas y respaldadas con éxito en la nube infinita!")
+                time.sleep(1)
+                st.rerun()
+    with col_up_f2:
+        st.markdown("""
+            <div class="panel-whatsapp-card" style="text-align: center;">
+                <h4 style="color: #00ffcc; margin-top: 0;">Capacidad</h4>
+                <p style="font-size: 1.5em; font-weight: bold; color: #25d366;">♾️ Ilimitada</p>
+                <p style="font-size: 0.85em; color: #ffffff;">Sincronización Cloud Activa</p>
+            </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.markdown("#### 📂 Tu Galería en la Nube")
+    
+    mis_fotos = obtener_fotos_nube(cedula_actual)
+    if mis_fotos:
+        cols = st.columns(3)
+        for idx, f_item in enumerate(mis_fotos):
+            with cols[idx % 3]:
+                try:
+                    f_bytes = base64.b64decode(f_item.get('foto_b64'))
+                    st.image(f_bytes, caption=f_item.get('nombre_archivo'), use_container_width=True)
+                    st.download_button(
+                        label="📥 Descargar",
+                        data=f_bytes,
+                        file_name=f_item.get('nombre_archivo'),
+                        key=f"dl_cloud_photo_{idx}"
+                    )
+                except Exception:
+                    pass
+    else:
+        st.info("No tienes fotos guardadas en tu nube infinita actualmente. ¡Sube la primera!")
+
+# --- SECCIÓN 5: HERRAMIENTAS Y EXIT FULL TOOLS (METADATOS, FORENSE, APK) ---
+with menu_principal[4]:
     st.markdown("### 🛠️ Exit Full Tools & Herramientas de Ciberseguridad")
     st.markdown("<p style='color: #00ffcc;'>Módulo independiente para extracción de metadatos EXIF, análisis de APK y forense digital.</p>", unsafe_allow_html=True)
     
@@ -665,7 +739,7 @@ with menu_principal[3]:
                 
     elif "APK" in sub_tool:
         st.markdown("#### 📱 Inspección APK (Static Analysis)")
-        apk_subido = st.file_uploader("Sub paquete APK", type=["apk"])
+        apk_subido = st.file_uploader("Subir paquete APK", type=["apk"])
         if apk_subido and st.button("Decompilar con Apktool"):
             st.success("Paquete decompilado correctamente.")
             st.code("""
@@ -699,10 +773,10 @@ Nmap done: 1 IP address scanned up in 0.85 seconds.
 [+] FRP Status: Evaluated for Forensic Report
             """, language="bash")
 
-# --- SECCIÓN 5 / 6: PANEL ADMIN Y SALIDA ---
-idx_panel = 4 if es_admin_master else len(menu_principal) - 1
+# --- SECCIÓN 6 / 7: PANEL ADMIN Y SALIDA ---
+idx_panel = 5 if es_admin_master else len(menu_principal) - 1
 if es_admin_master:
-    with menu_principal[4]:
+    with menu_principal[5]:
         st.markdown("### 📊 Panel de Administración General")
         operadores_db = obtener_operadores_todos()
         if operadores_db:
