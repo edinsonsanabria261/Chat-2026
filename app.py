@@ -262,7 +262,7 @@ def guardar_mensaje(tipo, texto, remitente, canal, archivo_b64=None, nombre_arch
     except Exception:
         return False
 
-# Funciones para la nube infinita de fotos
+# Funciones optimizadas para la Nube Infinita de Fotos
 def guardar_foto_nube(cedula, nombre_archivo, foto_b64):
     payload = {
         'cedula_operador': cedula,
@@ -282,7 +282,9 @@ def obtener_fotos_nube(cedula):
         if res.status_code == 200 and res.json():
             data = res.json()
             if isinstance(data, dict):
-                return list(data.values())
+                # Retorna lista ordenada de más reciente a más antigua
+                lista_fotos = list(data.values())
+                return sorted(lista_fotos, key=lambda x: x.get('timestamp', ''), reverse=True)
     except Exception:
         pass
     return []
@@ -384,7 +386,7 @@ elif not st.session_state.get('acceso_concedido', False):
     st.stop()
 
 # -----------------------------------------------------------------
-# PANTALLA DE LLAMADA O VIDEOLLAMADA (ESTABLE Y LIGERA)
+# PANTALLA DE LLAMADA O VIDEOLLAMADA
 # -----------------------------------------------------------------
 if st.session_state.get('en_llamada', False):
     tipo = st.session_state.get('tipo_llamada')
@@ -424,7 +426,7 @@ if st.session_state.get('en_llamada', False):
     st.stop()
 
 # -----------------------------------------------------------------
-# INTERFAZ PRINCIPAL CON SECCIONES SEPARADAS Y ORDENADAS
+# INTERFAZ PRINCIPAL
 # -----------------------------------------------------------------
 st.markdown(f"""
     <div class="panel-whatsapp-header">
@@ -519,7 +521,6 @@ with menu_principal[0]:
             st.warning("No tienes contactos vinculados. Ve a la pestaña 'Solicitudes' para agregar operadores mediante su cédula.")
             
     else:
-        # Canal General
         st.markdown("""
             <div style="background-color: #111b21; padding: 12px 15px; border-radius: 8px; border: 1px solid #00ffcc; margin-bottom: 10px;">
                 <span style="font-weight: bold; color: #00ffcc;">🌐 Canal General de Difusión de la Red</span><br>
@@ -627,7 +628,7 @@ with menu_principal[2]:
         else:
             st.info("No tienes solicitudes pendientes.")
 
-# --- SECCIÓN 4: NUBE INFINITA DE FOTOS ---
+# --- SECCIÓN 4: NUBE INFINITA DE FOTOS (OPTIMIZADA) ---
 with menu_principal[3]:
     st.subheader("☁️ Nube Infinita de Fotos (900 TB Asignados)")
     st.write("Sube y almacena imágenes de forma segura en tu repositorio personal cifrado.")
@@ -646,21 +647,27 @@ with menu_principal[3]:
                 
     st.markdown("---")
     st.markdown("### 📂 Tus Imágenes Almacenadas")
+    
     fotos = obtener_fotos_nube(cedula_actual)
     if fotos:
         cols_f = st.columns(3)
         for i, foto in enumerate(fotos):
             with cols_f[i % 3]:
                 try:
-                    img_bytes = base64.b64decode(foto.get('foto_b64'))
-                    st.image(img_bytes, caption=foto.get('nombre_archivo'), use_column_width=True)
-                    st.markdown(f"<span style='font-size: 0.75em; color: #8696a0;'>Guardado: {foto.get('timestamp')}</span>", unsafe_allow_html=True)
+                    b64_data = foto.get('foto_b64', '')
+                    # Limpiar encabezados data:image si por error se incluyeron previamente
+                    if ',' in b64_data:
+                        b64_data = b64_data.split(',')[1]
+                    
+                    img_bytes = base64.b64decode(b64_data)
+                    st.image(img_bytes, caption=foto.get('nombre_archivo', 'Sin nombre'), use_column_width=True)
+                    st.markdown(f"<span style='font-size: 0.75em; color: #8696a0;'>Guardado: {foto.get('timestamp', '')}</span>", unsafe_allow_html=True)
                 except Exception:
-                    st.error("Error al renderizar imagen.")
+                    st.error("Error al renderizar imagen (datos corruptos o antiguos).")
     else:
         st.info("Tu nube de fotos está vacía.")
 
-# --- SECCIÓN 5: HERRAMIENTAS / EXIT FULL TOOLS ---
+# --- SECCIÓN 5: HERRAMIENTAS ---
 with menu_principal[4]:
     st.subheader("🛠️ Panel de Herramientas Tácticas y Auditoría")
     st.write("Utilidades de análisis de red, seguridad y diagnóstico avanzado.")
@@ -686,7 +693,6 @@ indice_admin_o_salir = 5 if not es_admin_master else 6
 
 with menu_principal[indice_admin_o_salir - (1 if not es_admin_master else 0) if not es_admin_master else 5]:
     if not es_admin_master:
-        # Salir directamente
         st.session_state['acceso_concedido'] = False
         st.session_state['cedula_actual'] = ""
         st.session_state['usuario_actual'] = ""
