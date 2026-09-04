@@ -723,6 +723,7 @@ with menu_principal[3]:
             st.info("No hay imágenes válidas para mostrar. Prueba subiendo una nueva imagen.")
     else:
         st.info("Tu nube de fotos está vacía.")
+                                                        
 
 
 # --- SECCIÓN 5: HERRAMIENTAS ---
