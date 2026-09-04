@@ -646,24 +646,42 @@ with menu_principal[3]:
                 st.error("Error al subir la imagen a la base de datos.")
                 
     st.markdown("---")
-    st.markdown("### 📂 Tus Imágenes Almacenadas")
+    
+    col_inf_1, col_inf_2 = st.columns([4, 1])
+    with col_inf_1:
+        st.markdown("### 📂 Tus Imágenes Almacenadas")
+    with col_inf_2:
+        if st.button("🗑️ Limpiar Repositorio", help="Borra registros corruptos o antiguos"):
+            if limpiar_nube_corrupta(cedula_actual):
+                st.success("Repositorio limpiado correctamente.")
+                time.sleep(0.8)
+                st.rerun()
+            else:
+                st.error("No se pudo limpiar el repositorio.")
     
     fotos = obtener_fotos_nube(cedula_actual)
     if fotos:
         cols_f = st.columns(3)
+        renderizadas = 0
         for i, foto in enumerate(fotos):
-            with cols_f[i % 3]:
-                try:
-                    b64_data = foto.get('foto_b64', '')
-                    # Limpiar encabezados data:image si por error se incluyeron previamente
-                    if ',' in b64_data:
-                        b64_data = b64_data.split(',')[1]
-                    
-                    img_bytes = base64.b64decode(b64_data)
+            b64_data = foto.get('foto_b64', '')
+            if not b64_data:
+                continue
+            try:
+                if ',' in b64_data:
+                    b64_data = b64_data.split(',')[1]
+                
+                img_bytes = base64.b64decode(b64_data, validate=True)
+                with cols_f[renderizadas % 3]:
                     st.image(img_bytes, caption=foto.get('nombre_archivo', 'Sin nombre'), use_column_width=True)
                     st.markdown(f"<span style='font-size: 0.75em; color: #8696a0;'>Guardado: {foto.get('timestamp', '')}</span>", unsafe_allow_html=True)
-                except Exception:
-                    st.error("Error al renderizar imagen (datos corruptos o antiguos).")
+                renderizadas += 1
+            except Exception:
+                # Omitimos silenciosamente cualquier elemento corrupto para no saturar la pantalla con errores
+                continue
+                
+        if renderizadas == 0:
+            st.info("No hay imágenes válidas almacenadas. Sube una nueva imagen limpia arriba.")
     else:
         st.info("Tu nube de fotos está vacía.")
 
