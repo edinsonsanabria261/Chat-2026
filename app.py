@@ -739,7 +739,12 @@ with menu_principal[3]:
 # --- SECCIÓN 5: HERRAMIENTAS ---
 with menu_principal[4]:
     st.subheader("🛠️ Panel de Herramientas Tácticas y Auditoría")
-    st.write("Utilidades de análisis de red, seguridad y diagnóstico avanzado.")
+    st.write("Accede a tus módulos especializados con un solo clic:")
+    
+    # Botón para abrir tu herramienta de ExifTool en otra pestaña
+    st.link_button("🔍 Abrir Auditor ExifTool", "https://tu-url-de-exiftool.streamlit.app", use_container_width=True)
+    
+    st.markdown("---")
     
     col_tool_1, col_tool_2 = st.columns(2)
     with col_tool_1:
@@ -749,7 +754,7 @@ with menu_principal[4]:
                 time.sleep(1.5)
             st.success("Escaneo completado: 4 nodos seguros detectados y activos.")
             st.code("Node 1: 192.168.1.10 [SECURE]\nNode 2: 192.168.1.14 [SECURE]\nGateway P2P: Online", language="text")
-            
+
     with col_tool_2:
         st.markdown("### 🛡️ Diagnóstico de Seguridad")
         if st.button("Verificar Integridad del Sistema"):
