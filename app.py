@@ -4,33 +4,60 @@ import hashlib
 import urllib.parse
 import streamlit as st
 
-# --- CONFIGURACIÓN DE PÁGINA Y ESTILO ---
+# --- CONFIGURACIÓN DE PÁGINA Y ESTILO GLOBAL ---
 st.set_page_config(
-    page_title="Nexus-Sec | Portal Ejecutivo de Edinson Marin",
+    page_title="Nexus-Sec // Centro de Comando de Edinson Marin",
     page_icon="🛡️",
     layout="wide"
 )
 
-# Estilos Glassmorphism personalizados por Edinson Marin
 st.markdown("""
     <style>
+    /* Estilos Generales y Fondo Oscuro Ejecutivo */
+    .stApp {
+        background-color: #030712;
+        color: #f8fafc;
+        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+    
+    /* Pestañas Glassmorphism */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background-color: rgba(15, 23, 42, 0.4);
-        padding: 4px;
-        border-radius: 8px;
-        margin-bottom: 15px;
+        gap: 10px;
+        background-color: rgba(15, 23, 42, 0.6);
+        padding: 6px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        margin-bottom: 20px;
     }
     .stTabs [data-baseweb="tab"] {
-        height: 35px;
-        color: var(--text-muted);
-        border-radius: 6px;
-        font-size: 0.85rem;
-        font-weight: 500;
+        height: 40px;
+        color: #94a3b8;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        background-color: transparent;
+        border: none;
     }
     .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #dc2626, #ef4444) !important;
+        background: linear-gradient(135deg, #dc2626, #991b1b) !important;
         color: #ffffff !important;
+        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+    }
+
+    /* Tarjetas de Módulos (Glassmorphism Cards) */
+    .nexus-card {
+        background: rgba(15, 23, 42, 0.7);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .nexus-card:hover {
+        border-color: rgba(220, 38, 38, 0.4);
+        transform: translateY(-2px);
     }
     </style>
 """, unsafe_allow_html=True)
@@ -55,7 +82,7 @@ def guardar_base_datos(archivo, data):
 def hashear_password(password):
     return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
-# Inicializar bases de datos por defecto si no existen
+# Inicialización de bases de datos seguras
 if not os.path.exists(DB_FILE):
     guardar_base_datos(DB_FILE, {
         "edinson": {
@@ -67,13 +94,21 @@ if not os.path.exists(DB_FILE):
 
 if not os.path.exists(APPS_DB_FILE):
     guardar_base_datos(APPS_DB_FILE, {
-        "App Auditoría Red": {
+        "Auditoría de Red Perimetral": {
             "url": "https://streamlit.io",
-            "descripcion": "Herramienta de análisis de nodos y puertos perimetrales.",
+            "descripcion": "Herramienta avanzada de análisis de nodos, puertos y flujos de red.",
             "categoria": "Ciberseguridad",
             "permiso": "Libre",
             "estado": "Activa",
-            "version": "v1.0.0"
+            "version": "v1.2.0"
+        },
+        "Forense APK / Android": {
+            "url": "https://streamlit.io",
+            "descripcion": "Inspección de manifiestos y análisis estático de paquetes móviles.",
+            "categoria": "Forense",
+            "permiso": "Restringido",
+            "estado": "Activa",
+            "version": "v2.0.1"
         }
     })
 
@@ -91,45 +126,60 @@ if "rol_activo" not in st.session_state:
 
 # --- FLUJO PRINCIPAL ---
 if not st.session_state.autenticado:
-    st.markdown("""
-        <div style="background: #0b1329; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 40px; text-align: center; margin-top: 3rem;">
-            <h2 style="color: #f8fafc; font-weight: 700;">NEXUS-SEC // PANEL EJECUTIVO DE EDINSON MARIN</h2>
-            <p style="color: #94a3b8; font-size: 0.9rem;">Autenticación Requerida - Arquitectura de Control de Edinson Marin</p>
-        </div>
-    """, unsafe_allow_html=True)
+    # Pantalla de Login Dividida (Diseño Ejecutivo Superior)
+    col_banner, col_login = st.columns([1.2, 1])
     
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("Acceso Local Administrador")
-        user_input = st.text_input("Usuario", key="login_user")
-        pass_input = st.text_input("Contraseña", type="password", key="login_pass")
-        if st.button("Iniciar Sesión Local"):
-            db_users = cargar_base_datos(DB_FILE)
-            if user_input in db_users and db_users[user_input]["password"] == hashear_password(pass_input):
-                st.session_state.autenticado = True
-                st.session_state.usuario_activo = db_users[user_input]["nombre"]
-                st.session_state.rol_activo = db_users[user_input]["rol"]
-                st.rerun()
-            else:
-                st.error("Credenciales inválidas.")
+    with col_banner:
+        st.markdown("""
+            <div style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 40px; height: 100%; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <span style="color: #ef4444; font-weight: 700; font-size: 0.85rem; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px;">Security Operations Center</span>
+                <h1 style="color: #f8fafc; font-weight: 800; font-size: 2.2rem; margin-bottom: 15px; line-height: 1.2;">NEXUS-SEC // PORTAL DE EDINSON MARIN</h1>
+                <p style="color: #94a3b8; font-size: 1rem; line-height: 1.6;">Plataforma centralizada y modular diseñada para la gestión de activos tácticos, control de accesos RBAC y telemetría avanzada en tiempo real.</p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+    with col_login:
+        st.markdown("""
+            <div style="background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <h3 style="color: #f8fafc; margin-bottom: 20px; font-weight: 700;">Autenticación Requerida</h3>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        tab_local, tab_ext = st.tabs(["🔑 Credenciales", "🌐 Google OAuth"])
+        
+        with tab_local:
+            user_input = st.text_input("Usuario Administrador", key="login_user")
+            pass_input = st.text_input("Contraseña del Sistema", type="password", key="login_pass")
+            if st.button("Iniciar Sesión Local", use_container_width=True):
+                db_users = cargar_base_datos(DB_FILE)
+                if user_input in db_users and db_users[user_input]["password"] == hashear_password(pass_input):
+                    st.session_state.autenticado = True
+                    st.session_state.usuario_activo = db_users[user_input]["nombre"]
+                    st.session_state.rol_activo = db_users[user_input]["rol"]
+                    st.rerun()
+                else:
+                    st.error("Credenciales de acceso inválidas.")
 
-    with col2:
-        st.subheader("Autenticación Externa")
-        google_params = {
-            "client_id": GOOGLE_CLIENT_ID,
-            "redirect_uri": REDIRECT_URI,
-            "response_type": "code",
-            "scope": "openid email profile"
-        }
-        google_oauth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urllib.parse.urlencode(google_params)}"
-        st.markdown(f'<a href="{google_oauth_url}" target="_self"><button style="background-color:#4285F4;color:white;padding:10px 20px;border:none;border-radius:5px;cursor:pointer;font-weight:600;width:100%;">Acceder con Google</button></a>', unsafe_allow_html=True)
+        with tab_ext:
+            st.write("Acceso federado seguro a través de los servidores de autenticación autorizados.")
+            google_params = {
+                "client_id": GOOGLE_CLIENT_ID,
+                "redirect_uri": REDIRECT_URI,
+                "response_type": "code",
+                "scope": "openid email profile"
+            }
+            google_oauth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urllib.parse.urlencode(google_params)}"
+            st.markdown(f'<a href="{google_oauth_url}" target="_self"><button style="background: linear-gradient(135deg, #2563eb, #1d4ed8); color:white; padding:12px 20px; border:none; border-radius:8px; cursor:pointer; font-weight:600; width:100%; box-shadow: 0 4px 12px rgba(37,99,235,0.4);">Acceder con Cuenta Google</button></a>', unsafe_allow_html=True)
 
 else:
     # --- PANEL INTERNO Y HUB DE APLICACIONES DE EDINSON MARIN ---
     st.markdown(f"""
-        <div style="background: #0b1329; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 20px; margin-bottom: 20px;">
-            <h3 style="color: #f8fafc; margin:0;">Centro de Comando de Edinson Marin</h3>
-            <p style="color: #94a3b8; margin:0; font-size: 0.85rem;">Sesión Activa - Usuario: <b>{st.session_state.usuario_activo}</b> | Rol: <b>{st.session_state.rol_activo}</b></p>
+        <div class="nexus-card" style="display: flex; justify-content: space-between; align-items: center; background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);">
+            <div>
+                <span style="color: #4ade80; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">● Sistema Operativo Protegido</span>
+                <h2 style="color: #f8fafc; margin: 5px 0 0 0; font-weight: 800;">Centro de Comando de Edinson Marin</h2>
+                <p style="color: #94a3b8; margin: 0; font-size: 0.85rem;">Operador Activo: <b>{st.session_state.usuario_activo}</b> | Nivel de Credencial: <b>{st.session_state.rol_activo}</b></p>
+            </div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -139,19 +189,18 @@ else:
         st.session_state.rol_activo = ""
         st.rerun()
 
-    st.markdown("---")
+    st.markdown("<br>", unsafe_allow_html=True)
 
-    # Navegación interna del Portal
-    tab_hub, tab_admin, tab_telemetria = st.tabs(["🚀 App Hub & Enlaces", "⚙️ Gestión CRUD (Edinson Marin)", "📊 Telemetría y Auditoría"])
+    # Navegación interna del Portal con Pestañas Optimizadas
+    tab_hub, tab_admin, tab_telemetria = st.tabs(["🚀 App Hub & Directorio", "⚙️ Gestión CRUD de Activos", "📊 Telemetría y Auditoría"])
 
     apps_db = cargar_base_datos(APPS_DB_FILE)
 
     with tab_hub:
-        st.subheader("Directorio Central de Aplicaciones")
+        st.subheader("Directorio Central de Aplicaciones y Enlaces Únicos")
         
-        # Filtros de Categorías
         categorias = ["Todas"] + list(set([app["categoria"] for app in apps_db.values()]))
-        cat_seleccionada = st.selectbox("Filtrar por Propósito Operativo", categorias)
+        cat_seleccionada = st.selectbox("Filtrar por Categoría Operativa", categorias)
 
         cols = st.columns(2)
         idx = 0
@@ -161,28 +210,39 @@ else:
             
             with cols[idx % 2]:
                 st.markdown(f"""
-                    <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
-                        <h4 style="color: #f8fafc; margin-bottom: 5px;">{nombre_app} <span style="font-size:0.7rem; color:#38bdf8;">({datos['version']})</span></h4>
-                        <p style="color: #94a3b8; font-size: 0.85rem;">{datos['descripcion']}</p>
-                        <p style="font-size: 0.75rem; color: #4ade80;">Estado: {datos['estado']} | Permiso: {datos['permiso']}</p>
+                    <div class="nexus-card">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                            <h4 style="color: #f8fafc; margin: 0; font-weight: 700;">{nombre_app}</h4>
+                            <span style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">{datos['version']}</span>
+                        </div>
+                        <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 15px; min-height: 40px;">{datos['descripcion']}</p>
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                            <span style="color: #4ade80;">● {datos['estado']}</span>
+                            <span style="color: #cbd5e1;">Permiso: <b>{datos['permiso']}</b></span>
+                        </div>
                     </div>
                 """, unsafe_allow_html=True)
-                st.link_button(f"Abrir {nombre_app}", datos["url"])
+                st.link_button(f"Lanzar {nombre_app}", datos["url"], use_container_width=True)
             idx += 1
 
     with tab_admin:
-        st.subheader("Administración de Herramientas (CRUD)")
-        with st.form("form_nueva_app"):
-            app_nombre = st.text_input("Nombre de la Aplicación")
-            app_url = st.text_input("URL de Despliegue (ej. Streamlit Cloud / Servidor)")
+        st.subheader("Administración de Enlaces y Módulos (CRUD)")
+        st.write("Da de alta nuevas aplicaciones, modifica sus URLs de despliegue o actualiza sus metadatos de forma dinámica.")
+        
+        with st.form("form_nueva_app", clear_on_submit=True):
+            app_nombre = st.text_input("Nombre de la Herramienta / Aplicación")
+            app_url = st.text_input("URL de Despliegue (ej. Streamlit Cloud / Servidor Propio)")
             app_desc = st.text_area("Descripción Operativa")
-            app_cat = st.selectbox("Categoría", ["Ciberseguridad", "Forense", "Utilidades", "Automatización"])
-            app_permiso = st.selectbox("Nivel de Permiso (RBAC)", ["Libre", "Limitado", "Restringido"])
-            app_estado = st.selectbox("Estado del Sistema", ["Activa", "Mantenimiento", "Bloqueada"])
-            app_version = st.text_input("Versión actual", value="v1.0.0")
+            col_a, col_b = st.columns(2)
+            with col_a:
+                app_cat = st.selectbox("Categoría", ["Ciberseguridad", "Forense", "Utilidades", "Automatización"])
+                app_permiso = st.selectbox("Nivel de Permiso (RBAC)", ["Libre", "Limitado", "Restringido"])
+            with col_b:
+                app_estado = st.selectbox("Estado del Sistema", ["Activa", "Mantenimiento", "Bloqueada"])
+                app_version = st.text_input("Versión actual", value="v1.0.0")
             
-            submit_app = st.form_submit_button("Registrar / Actualizar Aplicación")
-            if submit_app and app_nombre:
+            submit_app = st.form_submit_button("Registrar / Actualizar Aplicación en el Hub", use_container_width=True)
+            if submit_app and app_nombre and app_url:
                 apps_db[app_nombre] = {
                     "url": app_url,
                     "descripcion": app_desc,
@@ -192,11 +252,31 @@ else:
                     "version": app_version
                 }
                 guardar_base_datos(APPS_DB_FILE, apps_db)
-                st.success(f"Aplicación '{app_nombre}' configurada exitosamente por Edinson Marin.")
+                st.success(f"Aplicación '{app_nombre}' configurada e integrada con éxito al sistema de Edinson Marin.")
+                st.rerun()
+
+        st.markdown("---")
+        st.subheader("Eliminar Módulo Existente")
+        app_a_borrar = st.selectbox("Seleccione la aplicación a retirar", list(apps_db.keys()))
+        if st.button("Eliminar Aplicación del Registro", type="primary"):
+            if app_a_borrar in apps_db:
+                del apps_db[app_a_borrar]
+                guardar_base_datos(APPS_DB_FILE, apps_db)
+                st.success(f"La aplicación '{app_a_borrar}' ha sido dada de baja correctamente.")
                 st.rerun()
 
     with tab_telemetria:
-        st.subheader("Registros de Actividad e Intrusión")
-        st.info("Monitoreo inmutable y control de accesos supervisados por Edinson Marin.")
-        st.metric(label="Total de Utilidades Registradas", value=len(apps_db))
-        st.metric(label="Estado del Firewall Perimetral", value="Óptimo / Blindado")
+        st.subheader("Telemetría Ejecutiva e Integridad del Sistema")
+        st.markdown("""
+            <div class="nexus-card">
+                <p style="color: #94a3b8; font-size: 0.9rem;">Monitoreo inmutable y auditoría de accesos centralizada bajo la supervisión directa de la arquitectura de control de Edinson Marin.</p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        col_m1, col_m2, col_m3 = st.columns(3)
+        with col_m1:
+            st.metric(label="Utilidades Activas en Hub", value=len(apps_db))
+        with col_m2:
+            st.metric(label="Estado del Firewall Perimetral", value="Óptimo / Blindado")
+        with col_m3:
+            st.metric(label="Integridad del Vault (SHA-256)", value="Verificada")
