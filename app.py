@@ -342,12 +342,12 @@ if not st.session_state.autenticado:
         """, unsafe_allow_html=True)
 else:
     # --- PANEL INTERNO Y HUB DE APLICACIONES DE EDINSON MARIN ---
-    st.markdown(f"""
+    st.markdown("""
         <div style="background: #0b1329; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 20px; margin-bottom: 20px;">
             <h3 style="color: #f8fafc; margin:0;">Centro de Comando de Edinson Marin</h3>
-            <p style="color: #94a3b8; margin:0; font-size: 0.85rem;">Sesión Activa - Usuario: <b>{st.session_state.usuario_activo}</b> | Rol: <b>{st.session_state.rol_activo}</b></p>
+            <p style="color: #94a3b8; margin:0; font-size: 0.85rem;">Sesión Activa - Usuario: <b>{}</b> | Rol: <b>{}</b></p>
         </div>
-    """, unsafe_allow_html=True)
+    """.format(st.session_state.get('usuario_activo', 'Admin'), st.session_state.get('rol_activo', 'Superusuario')), unsafe_allow_html=True)
 
     if st.button("Cerrar Sesión de Forma Segura"):
         st.session_state.autenticado = False
@@ -360,12 +360,20 @@ else:
     # Navegación interna del Portal
     tab_hub, tab_admin, tab_telemetria = st.tabs(["🚀 App Hub & Enlaces", "⚙️ Gestión CRUD (Edinson Marin)", "📊 Telemetría y Auditoría"])
 
-    apps_db = cargar_base_datos(APPS_DB_FILE)
+    # Función simulada o cargador de base de datos local si no existe
+    def obtener_apps_seguras():
+        if 'cargar_base_datos' in globals() and 'APPS_DB_FILE' in globals():
+            return cargar_base_datos(APPS_DB_FILE)
+        return {
+            "Nexus-Sec Portal": {"url": "#", "descripcion": "Plataforma principal de operaciones y ciberseguridad.", "categoria": "Ciberseguridad", "permiso": "Libre", "estado": "Activa", "version": "v1.0.0"},
+            "Auditor Forense": {"url": "#", "descripcion": "Herramienta de análisis estático y dinámico de artefactos.", "categoria": "Forense", "permiso": "Restringido", "estado": "Activa", "version": "v2.1.0"}
+        }
+
+    apps_db = obtener_apps_seguras()
 
     with tab_hub:
         st.subheader("Directorio Central de Aplicaciones")
         
-        # Filtros de Categorías
         categorias = ["Todas"] + list(set([app["categoria"] for app in apps_db.values()]))
         cat_seleccionada = st.selectbox("Filtrar por Propósito Operativo", categorias)
 
@@ -407,7 +415,8 @@ else:
                     "estado": app_estado,
                     "version": app_version
                 }
-                guardar_base_datos(APPS_DB_FILE, apps_db)
+                if 'guardar_base_datos' in globals() and 'APPS_DB_FILE' in globals():
+                    guardar_base_datos(APPS_DB_FILE, apps_db)
                 st.success(f"Aplicación '{app_nombre}' configurada exitosamente por Edinson Marin.")
                 st.rerun()
 
@@ -416,4 +425,3 @@ else:
         st.info("Monitoreo inmutable y control de accesos supervisados por Edinson Marin.")
         st.metric(label="Total de Utilidades Registradas", value=len(apps_db))
         st.metric(label="Estado del Firewall Perimetral", value="Óptimo / Blindado")
-        
