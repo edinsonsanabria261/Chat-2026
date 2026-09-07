@@ -39,12 +39,10 @@ st.markdown("""
         background: radial-gradient(circle at 50% 50%, #0a192f 0%, #050b14 100%);
     }
 
-    /* Ocultar elementos nativos de separadores en columnas */
     [data-testid="column"] {
         padding: 0px !important;
     }
 
-    /* Estilización general de campos de texto */
     .stTextInput input {
         background-color: rgba(15, 23, 42, 0.6) !important;
         border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -58,7 +56,6 @@ st.markdown("""
         box-shadow: 0 0 0 2px var(--accent-glow) !important;
     }
 
-    /* Estilo de los botones */
     .stButton button {
         width: 100%;
         border-radius: 8px !important;
@@ -68,7 +65,6 @@ st.markdown("""
         transition: all 0.3s ease !important;
     }
 
-    /* Pestañas internas */
     .stTabs [data-baseweb="tab-list"] {
         gap: 6px;
         background-color: rgba(15, 23, 42, 0.4);
@@ -111,7 +107,7 @@ def guardar_base_datos(db):
 def hashear_password(password):
     return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
-# --- CREDENCIALES OAUTH 2.0 OFICIALES (MODIFICAR PARA PRODUCCIÓN) ---
+# --- CREDENCIALES OAUTH 2.0 (REEMPLAZAR CON TUS CLIENT_ID REALES) ---
 GOOGLE_CLIENT_ID = "TU_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
 FACEBOOK_APP_ID = "TU_FACEBOOK_APP_ID"
 REDIRECT_URI = "http://localhost:8501/"
@@ -122,10 +118,9 @@ if "autenticado" not in st.session_state:
 if "usuario_activo" not in st.session_state:
     st.session_state.usuario_activo = ""
 
-# Inicializar estados de campos de texto para limpieza automática post-envío
-for campo in ["login_user", "login_pass", "reg_user", "reg_pass", "reg_pass2", "rec_user"]:
-    if campo not in st.session_state:
-        st.session_state[campo] = ""
+# Control de limpieza de formularios mediante triggers de estado
+if "form_limpiar" not in st.session_state:
+    st.session_state.form_limpiar = False
 
 # Generación de URLs de Autenticación Externa Real
 google_params = {
@@ -161,10 +156,9 @@ if st.session_state.autenticado:
         st.rerun()
 
 else:
-    # Contenedor Split en 2 Columnas (Diseño Modal Exacto)
     col_banner, col_form = st.columns([1, 1.2], gap="small")
 
-    # --- COLUMNA IZQUIERDA: BANNER VISUAL E IMAGEN ---
+    # --- COLUMNA IZQUIERDA: BANNER VISUAL ---
     with col_banner:
         st.markdown("""
             <div style="
@@ -211,8 +205,8 @@ else:
         # ================= PESTAÑA: INICIAR SESIÓN =================
         with tab_login:
             with st.form("login_modal_form"):
-                usuario_in = st.text_input("Cédula o Correo Gmail", key="login_user", placeholder="ej: 12345678 o user@gmail.com")
-                pass_in = st.text_input("Contraseña", type="password", key="login_pass", placeholder="••••••••••••")
+                usuario_in = st.text_input("Cédula o Correo Gmail", placeholder="ej: 12345678 o user@gmail.com")
+                pass_in = st.text_input("Contraseña", type="password", placeholder="••••••••••••")
                 
                 submit_ingreso = st.form_submit_button("Iniciar Sesión")
 
@@ -227,18 +221,14 @@ else:
                         if u_limpio in db and db[u_limpio]["password"] == p_hash:
                             st.session_state.autenticado = True
                             st.session_state.usuario_activo = u_limpio
-                            st.session_state.login_user = ""
-                            st.session_state.login_pass = ""
                             st.success("¡Acceso concedido!")
                             time.sleep(0.5)
                             st.rerun()
                         else:
                             st.error("Credenciales incorrectas o usuario no registrado.")
-                            st.session_state.login_pass = ""
 
             st.markdown("<p style='text-align: center; color: #94a3b8; font-size: 0.75rem; margin: 10px 0;'>O ingresa con una cuenta externa</p>", unsafe_allow_html=True)
             
-            # Botones oficiales de redirección OAuth 2.0
             col_g, col_f = st.columns(2)
             with col_g:
                 st.link_button("🔵 Google", google_oauth_url, use_container_width=True)
@@ -248,9 +238,9 @@ else:
         # ================= PESTAÑA: REGISTRO =================
         with tab_registro:
             with st.form("registro_modal_form"):
-                reg_id = st.text_input("Cédula o Correo Gmail", key="reg_user", placeholder="ej: V-12345678 o correo@gmail.com")
-                reg_pass = st.text_input("Crear Contraseña", type="password", key="reg_pass", placeholder="••••••••••••")
-                reg_pass2 = st.text_input("Confirmar Contraseña", type="password", key="reg_pass2", placeholder="••••••••••••")
+                reg_id = st.text_input("Cédula o Correo Gmail", placeholder="ej: V-12345678 o correo@gmail.com")
+                reg_pass = st.text_input("Crear Contraseña", type="password", placeholder="••••••••••••")
+                reg_pass2 = st.text_input("Confirmar Contraseña", type="password", placeholder="••••••••••••")
                 
                 submit_registro = st.form_submit_button("Registrar Cuenta")
 
@@ -266,16 +256,11 @@ else:
                         st.error("Debe ingresar una **Cédula válida** o un correo **Gmail**.")
                     elif reg_pass != reg_pass2:
                         st.error("Las contraseñas no coinciden.")
-                        st.session_state.reg_pass = ""
-                        st.session_state.reg_pass2 = ""
                     elif r_limpio in db:
                         st.warning("Este identificador ya se encuentra registrado.")
                     else:
                         db[r_limpio] = {"password": hashear_password(reg_pass), "tipo": "user"}
                         guardar_base_datos(db)
-                        st.session_state.reg_user = ""
-                        st.session_state.reg_pass = ""
-                        st.session_state.reg_pass2 = ""
                         st.success("¡Registro completado con éxito! Ya puedes iniciar sesión.")
                         time.sleep(1)
                         st.rerun()
@@ -283,7 +268,7 @@ else:
         # ================= PESTAÑA: RECUPERAR CONTRASEÑA =================
         with tab_recuperar:
             with st.form("recuperar_modal_form"):
-                rec_id = st.text_input("Cédula o Gmail para recuperación", key="rec_user", placeholder="ej: 12345678 o tu_correo@gmail.com")
+                rec_id = st.text_input("Cédula o Gmail para recuperación", placeholder="ej: 12345678 o tu_correo@gmail.com")
                 submit_recuperar = st.form_submit_button("Verificar e Instrucciones")
 
                 if submit_recuperar:
@@ -292,7 +277,6 @@ else:
                     if not rc_limpio:
                         st.error("Ingrese su identificador registrado.")
                     elif rc_limpio in db:
-                        st.session_state.rec_user = ""
                         st.success(f"Instrucciones de restablecimiento enviadas de forma segura a `{rc_limpio}`.")
                     else:
                         st.error("No se encontró ningún registro asociado a este identificador.")
