@@ -1,10 +1,9 @@
 import streamlit as st
 import time
-import re
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(
-    page_title="Nexus-Sec | Portal de Acceso Seguro",
+    page_title="Nexus-Sec | Portal Ejecutivo",
     page_icon="🛡️",
     layout="centered"
 )
@@ -69,6 +68,28 @@ st.markdown("""
         margin-bottom: 25px;
     }
 
+    /* Personalización de Pestañas (Tabs) */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        background-color: rgba(15, 23, 42, 0.5);
+        padding: 6px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        height: 40px;
+        color: var(--text-muted);
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 0.85rem;
+    }
+
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #0891b2, #06b6d4) !important;
+        color: #ffffff !important;
+    }
+
     .stTextInput input {
         background-color: rgba(30, 41, 59, 0.5) !important;
         border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -113,10 +134,7 @@ st.markdown("""
 # --- INICIALIZACIÓN DE ESTADO ---
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
-if "modo" not in st.session_state:
-    st.session_state.modo = "login"  # login, registro, recuperar
 if "usuarios_bd" not in st.session_state:
-    # Base de datos simulada en memoria (Cédula/Gmail -> Password)
     st.session_state.usuarios_bd = {
         "admin": {"password": "nexus2026", "tipo": "user"}
     }
@@ -139,29 +157,15 @@ else:
     st.markdown("""
         <div class="nexus-card">
             <div class="nexus-title">NEXUS<span>-SEC</span></div>
-            <div class="nexus-subtitle">Portal de Gestión de Identidad y Acceso</div>
+            <div class="nexus-subtitle">Portal Ejecutivo de Gestión de Identidad</div>
     """, unsafe_allow_html=True)
 
-    # Selector visual de modo mediante columnas de botones limpios
-    col_m1, col_m2, col_m3 = st.columns(3)
-    with col_m1:
-        if st.button("🔑 Iniciar"):
-            st.session_state.modo = "login"
-            st.rerun()
-    with col_m2:
-        if st.button("📝 Registro"):
-            st.session_state.modo = "registro"
-            st.rerun()
-    with col_m3:
-        if st.button("🔄 Recuperar"):
-            st.session_state.modo = "recuperar"
-            st.rerun()
+    # Navegación Fluida por Pestañas (Tabs)
+    tab_login, tab_registro, tab_recuperar = st.tabs(["🔑 Iniciar Sesión", "📝 Registro", "🔄 Recuperar"])
 
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # ================= MODO: LOGIN =================
-    if st.session_state.modo == "login":
-        st.markdown("#### Acceso al Sistema")
+    # ================= PESTAÑA: INICIAR SESIÓN =================
+    with tab_login:
+        st.markdown("<br>", unsafe_allow_html=True)
         with st.form("login_form"):
             id_ingreso = st.text_input("Cédula o Correo Gmail", placeholder="ej: 12345678 o usuario@gmail.com")
             password = st.text_input("Clave de Acceso", type="password", placeholder="••••••••••••")
@@ -170,7 +174,7 @@ else:
             if submit_login:
                 id_limpio = id_ingreso.strip().lower()
                 if not id_limpio or not password:
-                    st.error("Por favor complete todos los campos.")
+                    st.error("Por favor complete todos los campos de acceso.")
                 else:
                     if id_limpio in st.session_state.usuarios_bd and st.session_state.usuarios_bd[id_limpio]["password"] == password:
                         st.session_state.autenticado = True
@@ -180,11 +184,11 @@ else:
                     else:
                         st.error("Credenciales inválidas o usuario no registrado.")
 
-    # ================= MODO: REGISTRO =================
-    elif st.session_state.modo == "registro":
-        st.markdown("#### Registro con Cédula o Gmail")
+    # ================= PESTAÑA: REGISTRO =================
+    with tab_registro:
+        st.markdown("<br>", unsafe_allow_html=True)
         with st.form("registro_form"):
-            nuevo_id = st.text_input("Ingrese su Cédula o Correo Gmail", placeholder="ej: V-12345678 o correo@gmail.com")
+            nuevo_id = st.text_input("Cédula o Correo Gmail", placeholder="ej: V-12345678 o correo@gmail.com")
             nuevo_pass = st.text_input("Crear Clave de Acceso", type="password", placeholder="••••••••••••")
             confirm_pass = st.text_input("Confirmar Clave de Acceso", type="password", placeholder="••••••••••••")
             
@@ -192,31 +196,28 @@ else:
 
             if submit_reg:
                 id_limpio = nuevo_id.strip().lower()
-                
-                # Validación estricta para asegurar que sea Cédula (números/letras de documento) o formato Gmail válido
                 es_gmail = id_limpio.endswith("@gmail.com")
                 es_cedula = len(id_limpio) >= 6 and any(char.isdigit() for char in id_limpio)
 
                 if not id_limpio or not nuevo_pass:
                     st.error("Debe rellenar todos los campos obligatorios.")
                 elif not (es_gmail or es_cedula):
-                    st.error("Por favor ingrese una **Cédula válida** o una cuenta de **Gmail** corporativa/personal.")
+                    st.error("Por favor ingrese una **Cédula válida** o una cuenta de **Gmail**.")
                 elif nuevo_pass != confirm_pass:
                     st.error("Las claves de acceso no coinciden.")
                 elif id_limpio in st.session_state.usuarios_bd:
-                    st.warning("Este identificador (Cédula/Gmail) ya se encuentra registrado.")
+                    st.warning("Este identificador ya se encuentra registrado.")
                 else:
                     st.session_state.usuarios_bd[id_limpio] = {"password": nuevo_pass, "tipo": "user"}
-                    st.success("¡Registro exitoso! Ya puede iniciar sesión con sus credenciales.")
+                    st.success("¡Registro exitoso! Ya puede iniciar sesión.")
                     time.sleep(1)
-                    st.session_state.modo = "login"
                     st.rerun()
 
-    # ================= MODO: RECUPERAR ACCESO =================
-    elif st.session_state.modo == "recuperar":
-        st.markdown("#### Recuperación de Credenciales")
+    # ================= PESTAÑA: RECUPERAR ACCESO =================
+    with tab_recuperar:
+        st.markdown("<br>", unsafe_allow_html=True)
         with st.form("recuperar_form"):
-            recuperar_id = st.text_input("Su Cédula o Correo Gmail registrado", placeholder="ej: 12345678 o correo@gmail.com")
+            recuperar_id = st.text_input("Cédula o Correo Gmail registrado", placeholder="ej: 12345678 o correo@gmail.com")
             submit_rec = st.form_submit_button("Enviar Instrucciones de Recuperación")
 
             if submit_rec:
@@ -224,7 +225,6 @@ else:
                 if not rec_limpio:
                     st.error("Ingrese el identificador para buscar en la base de datos.")
                 elif rec_limpio in st.session_state.usuarios_bd:
-                    # Simulación de envío de enlace o restablecimiento seguro
                     st.success(f"Se han enviado los pasos de recuperación al registro asociado a: `{rec_limpio}`.")
                 else:
                     st.error("El identificador proporcionado no registra actividad en el sistema.")
@@ -235,3 +235,4 @@ else:
             </div>
         </div>
     """, unsafe_allow_html=True)
+                
