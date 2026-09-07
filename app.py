@@ -425,4 +425,5 @@ else:
         st.info("Monitoreo inmutable y control de accesos supervisados por Edinson Marin.")
         st.metric(label="Total de Utilidades Registradas", value=len(apps_db))
         st.metric(label="Estado del Firewall Perimetral", value="Óptimo / Blindado")
+
     
