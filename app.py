@@ -340,7 +340,6 @@ if not st.session_state.autenticado:
                 </div>
             </div>
         """, unsafe_allow_html=True)
-
 else:
     # --- PANEL INTERNO Y HUB DE APLICACIONES DE EDINSON MARIN ---
     st.markdown(f"""
