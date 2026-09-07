@@ -1,5 +1,6 @@
 import streamlit as st
 import time
+import urllib.parse
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(
@@ -8,7 +9,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- ESTILOS CSS AVANZADOS (DISEÑO SPLIT MODAL DOS COLUMNAS) ---
+# --- ESTILOS CSS AVANZADOS (DISEÑO LIMPIO Y MODERNO) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -16,7 +17,6 @@ st.markdown("""
     :root {
         --bg-deep: #050b14;
         --modal-bg: #0b1329;
-        --left-banner-bg: #dc2626; /* Tono rojo llamativo corporativo/gaming */
         --accent-cyan: #06b6d4;
         --accent-glow: rgba(6, 182, 212, 0.25);
         --text-main: #f8fafc;
@@ -36,35 +36,6 @@ st.markdown("""
         background: radial-gradient(circle at 50% 50%, #0a192f 0%, #050b14 100%);
     }
 
-    /* Contenedor principal tipo Modal Ejecutivo */
-    .nexus-modal-container {
-        display: flex;
-        flex-direction: row;
-        background: var(--modal-bg);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 16px;
-        overflow: hidden;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8),
-                    0 0 35px rgba(220, 38, 38, 0.15);
-        margin-top: 2rem;
-    }
-
-    /* Ocultar elementos nativos de separadores en columnas */
-    [data-testid="column"] {
-        padding: 0px !important;
-    }
-
-    /* Estilo de los botones de OAuth (Google / Facebook) */
-    .stButton button {
-        width: 100%;
-        border-radius: 8px !important;
-        font-weight: 500 !important;
-        font-size: 0.9rem !important;
-        padding: 10px !important;
-        transition: all 0.3s ease !important;
-    }
-
-    /* Estilización general de campos de texto */
     .stTextInput input {
         background-color: rgba(15, 23, 42, 0.6) !important;
         border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -78,7 +49,15 @@ st.markdown("""
         box-shadow: 0 0 0 2px var(--accent-glow) !important;
     }
 
-    /* Pestañas internas */
+    .stButton button {
+        width: 100%;
+        border-radius: 8px !important;
+        font-weight: 500 !important;
+        font-size: 0.9rem !important;
+        padding: 10px !important;
+        transition: all 0.3s ease !important;
+    }
+
     .stTabs [data-baseweb="tab-list"] {
         gap: 6px;
         background-color: rgba(15, 23, 42, 0.4);
@@ -102,7 +81,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- INICIALIZACIÓN DE ESTADO ---
+# --- CONFIGURACIÓN DE CREDENCIALES OAUTH REALEAS (REEMPLAZAR CON TUS CLIENT_ID) ---
+GOOGLE_CLIENT_ID = "TU_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+FACEBOOK_APP_ID = "TU_FACEBOOK_APP_ID"
+REDIRECT_URI = "http://localhost:8501/"  # URL de redirección configurada en tu app
+
+# --- INICIALIZACIÓN DE ESTADO DE SESIÓN ---
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
 if "usuarios_bd" not in st.session_state:
@@ -110,75 +94,66 @@ if "usuarios_bd" not in st.session_state:
         "admin": {"password": "nexus2026", "tipo": "user"}
     }
 
+# Inicializar estados de campos de texto para limpieza limpia post-envío
+for key in ["login_user", "login_pass", "reg_user", "reg_pass", "reg_pass2", "rec_user"]:
+    if key not in st.session_state:
+        st.session_state[key] = ""
+
+# --- URLs de redirección OAuth reales ---
+google_params = {
+    "client_id": GOOGLE_CLIENT_ID,
+    "redirect_uri": REDIRECT_URI,
+    "response_type": "code",
+    "scope": "openid email profile"
+}
+google_oauth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urllib.parse.urlencode(google_params)}"
+
+facebook_params = {
+    "client_id": FACEBOOK_APP_ID,
+    "redirect_uri": REDIRECT_URI,
+    "response_type": "code",
+    "scope": "email"
+}
+facebook_oauth_url = f"https://www.facebook.com/v12.0/dialog/oauth?{urllib.parse.urlencode(facebook_params)}"
+
+
 # --- FLUJO PRINCIPAL ---
 if st.session_state.autenticado:
-    st.markdown("""
-        <div style="background: #0b1329; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 40px; text-align: center; margin-top: 3rem;">
-            <h2 style="color: #f8fafc; font-weight: 700;">NEXUS<span style="color: #ef4444;">-SEC</span> PANEL</h2>
-            <p style="color: #94a3b8; font-size: 0.9rem;">Sesión Segura Activa - Nivel de Autorización: Operativo</p>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    st.success("✨ ¡Bienvenido al núcleo de operaciones seguro!")
+    st.markdown("### NEXUS-SEC PANEL DE OPERACIONES")
+    st.success("Sesión Segura Activa - Nivel de Autorización: Operativo")
     if st.button("Cerrar Sesión de Forma Segura"):
         st.session_state.autenticado = False
         st.rerun()
 
 else:
-    # Contenedor Split en 2 Columnas (Estilo Modal de Referencia)
-    col_banner, col_form = st.columns([1, 1.2], gap="small")
+    col_banner, col_form = st.columns([1, 1.2], gap="medium")
 
-    # --- COLUMNA IZQUIERDA: BANNER VISUAL E IMAGEN ---
+    # --- COLUMNA IZQUIERDA: BANNER VISUAL ---
     with col_banner:
         st.markdown("""
-            <div style="
-                background: linear-gradient(135deg, #b91c1c 0%, #dc2626 50%, #991b1b 100%);
-                padding: 40px 25px;
-                height: 100%;
-                display: flex;
-                flex-direction: column;
-                justify-content: space-between;
-                color: white;
-                border-top-left-radius: 16px;
-                border-bottom-left-radius: 16px;
-            ">
-                <div>
-                    <h3 style="font-size: 1.1rem; font-weight: 600; letter-spacing: 0.05em; opacity: 0.85; margin-bottom: 15px;">NEXUS-SEC SUITE</h3>
-                    <h1 style="font-size: 1.75rem; font-weight: 700; line-height: 1.2; margin-bottom: 20px;">
-                        Protege tu infraestructura sin caer en vulnerabilidades
-                    </h1>
-                    <p style="font-size: 0.85rem; opacity: 0.9; line-height: 1.5;">
-                        Obtén análisis avanzados de seguridad, auditorías en tiempo real y protección de activos de alto rendimiento.
-                    </p>
-                </div>
-                
-                <div style="margin-top: 30px; text-align: center;">
-                    <!-- Imagen ilustrativa integrada con enlace estable -->
-                    <img src="https://img.icons8.com/external-flat-wichaiwi/64/null/external-cyber-security-cyber-security-flat-wichaiwi.png" style="width: 70px; margin-bottom: 15px; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));" />
-                    <div style="display: flex; justify-content: center; gap: 8px; margin-top: 10px;">
-                        <span style="width: 20px; height: 4px; background: white; border-radius: 2px;"></span>
-                        <span style="width: 8px; height: 4px; background: rgba(255,255,255,0.4); border-radius: 2px;"></span>
-                    </div>
-                </div>
+            <div style="background: linear-gradient(135deg, #b91c1c 0%, #dc2626 50%, #991b1b 100%); padding: 40px 25px; border-radius: 16px; color: white; height: 100%;">
+                <h3 style="font-size: 1.1rem; font-weight: 600; opacity: 0.85; margin-bottom: 15px;">NEXUS-SEC SUITE</h3>
+                <h1 style="font-size: 1.75rem; font-weight: 700; line-height: 1.2; margin-bottom: 20px;">
+                    Protege tu infraestructura sin caer en vulnerabilidades
+                </h1>
+                <p style="font-size: 0.85rem; opacity: 0.9; line-height: 1.5;">
+                    Obtén análisis avanzados de seguridad, auditorías en tiempo real y protección de activos de alto rendimiento.
+                </p>
             </div>
         """, unsafe_allow_html=True)
 
-    # --- COLUMNA DERECHA: PANELES DE AUTENTICACIÓN (TABS) ---
+    # --- COLUMNA DERECHA: PANELES DE AUTENTICACIÓN ---
     with col_form:
-        st.markdown("""
-            <div style="background: #0b1329; padding: 30px; border-top-right-radius: 16px; border-bottom-right-radius: 16px; height: 100%;">
-                <div style="font-size: 1.2rem; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">Acceso al Sistema</div>
-                <div style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 20px;">Inicia sesión o regístrate en NEXUS-SEC</div>
-        """, unsafe_allow_html=True)
+        st.markdown("### Acceso al Sistema")
+        st.caption("Inicia sesión o regístrate en NEXUS-SEC")
 
-        # Pestañas fluidas idénticas al modelo de referencia
         tab_login, tab_registro, tab_recuperar = st.tabs(["Iniciar Sesión", "Registro", "Recuperar"])
 
         # ================= PESTAÑA: INICIAR SESIÓN =================
         with tab_login:
-            with st.form("login_modal_form"):
-                usuario_in = st.text_input("Cédula o Correo Gmail", placeholder="ej: 12345678 o user@gmail.com")
-                pass_in = st.text_input("Contraseña", type="password", placeholder="••••••••••••")
+            with st.form("login_form_real"):
+                usuario_in = st.text_input("Cédula o Correo Gmail", key="login_user", placeholder="ej: 12345678 o user@gmail.com")
+                pass_in = st.text_input("Contraseña", type="password", key="login_pass", placeholder="••••••••••••")
                 
                 submit_ingreso = st.form_submit_button("Iniciar Sesión")
 
@@ -189,29 +164,30 @@ else:
                     else:
                         if u_limpio in st.session_state.usuarios_bd and st.session_state.usuarios_bd[u_limpio]["password"] == pass_in:
                             st.session_state.autenticado = True
+                            st.session_state.login_user = ""
+                            st.session_state.login_pass = ""
                             st.success("¡Acceso concedido!")
                             time.sleep(0.5)
                             st.rerun()
                         else:
                             st.error("Credenciales incorrectas.")
+                            st.session_state.login_pass = ""
 
-            st.markdown("<p style='text-align: center; color: #94a3b8; font-size: 0.75rem; margin: 10px 0;'>O ingresa con una cuenta externa</p>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; color: #94a3b8; font-size: 0.75rem; margin: 10px 0;'>O ingresa mediante proveedor externo</p>", unsafe_allow_html=True)
             
-            # Botones de inicio de sesión rápido (Gmail / Facebook)
+            # Botones reales de redirección OAuth 2.0
             col_g, col_f = st.columns(2)
             with col_g:
-                if st.button("🔵 Google / Gmail"):
-                    st.info("Simulando autenticación segura mediante OAuth Google...")
+                st.markdown(f'<a href="{google_oauth_url}" target="_self"><button style="width:100%; background:#ea4335; color:white; border:none; padding:10px; border-radius:8px; font-weight:500; cursor:pointer;">Google / Gmail</button></a>', unsafe_allow_html=True)
             with col_f:
-                if st.button("🔵 Facebook"):
-                    st.info("Simulando autenticación segura mediante OAuth Facebook...")
+                st.markdown(f'<a href="{facebook_oauth_url}" target="_self"><button style="width:100%; background:#1877f2; color:white; border:none; padding:10px; border-radius:8px; font-weight:500; cursor:pointer;">Facebook</button></a>', unsafe_allow_html=True)
 
         # ================= PESTAÑA: REGISTRO =================
         with tab_registro:
-            with st.form("registro_modal_form"):
-                reg_id = st.text_input("Cédula o Correo Gmail", placeholder="ej: V-12345678 o correo@gmail.com")
-                reg_pass = st.text_input("Crear Contraseña", type="password", placeholder="••••••••••••")
-                reg_pass2 = st.text_input("Confirmar Contraseña", type="password", placeholder="••••••••••••")
+            with st.form("registro_form_real"):
+                reg_id = st.text_input("Cédula o Correo Gmail", key="reg_user", placeholder="ej: V-12345678 o correo@gmail.com")
+                reg_pass = st.text_input("Crear Contraseña", type="password", key="reg_pass", placeholder="••••••••••••")
+                reg_pass2 = st.text_input("Confirmar Contraseña", type="password", key="reg_pass2", placeholder="••••••••••••")
                 
                 submit_registro = st.form_submit_button("Registrar Cuenta")
 
@@ -226,32 +202,34 @@ else:
                         st.error("Debe ingresar una **Cédula válida** o un correo **Gmail**.")
                     elif reg_pass != reg_pass2:
                         st.error("Las contraseñas no coinciden.")
+                        st.session_state.reg_pass = ""
+                        st.session_state.reg_pass2 = ""
                     elif r_limpio in st.session_state.usuarios_bd:
                         st.warning("Este identificador ya se encuentra registrado.")
                     else:
                         st.session_state.usuarios_bd[r_limpio] = {"password": reg_pass, "tipo": "user"}
+                        st.session_state.reg_user = ""
+                        st.session_state.reg_pass = ""
+                        st.session_state.reg_pass2 = ""
                         st.success("¡Registro completado con éxito! Ya puedes iniciar sesión.")
                         time.sleep(1)
                         st.rerun()
 
         # ================= PESTAÑA: RECUPERAR CONTRASEÑA =================
         with tab_recuperar:
-            with st.form("recuperar_modal_form"):
-                rec_id = st.text_input("Cédula o Gmail para recuperación", placeholder="ej: 12345678 o tu_correo@gmail.com")
-                submit_recuperar = st.form_submit_button("Verificar e Instrucciones")
+            with st.form("recuperar_form_real"):
+                rec_id = st.text_input("Cédula o Gmail registrado", key="rec_user", placeholder="ej: 12345678 o tu_correo@gmail.com")
+                submit_recuperar = st.form_submit_button("Enviar Instrucciones")
 
                 if submit_recuperar:
                     rc_limpio = rec_id.strip().lower()
                     if not rc_limpio:
                         st.error("Ingrese su identificador registrado.")
                     elif rc_limpio in st.session_state.usuarios_bd:
-                        st.success(f"Instrucciones de restablecimiento enviadas a `{rc_limpio}`.")
+                        st.session_state.rec_user = ""
+                        st.success(f"Instrucciones de restablecimiento enviadas de forma segura a `{rc_limpio}`.")
                     else:
                         st.error("No se encontró ningún registro asociado a este identificador.")
 
-        st.markdown("""
-                <div style="text-align: center; margin-top: 20px; font-size: 0.7rem; color: #94a3b8; border-top: 1px solid rgba(255,255,255,0.05); pt: 10px;">
-                    🔒 Canal Encriptado TLS 1.3 • Soporte Técnico Nexus-Sec
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown("---")
+        st.markdown("<p style='text-align: center; font-size: 0.7rem; color: #94a3b8;'>🔒 Canal Encriptado TLS 1.3 • Soporte Técnico Nexus-Sec</p>", unsafe_allow_html=True)
