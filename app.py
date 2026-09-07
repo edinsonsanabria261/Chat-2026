@@ -107,10 +107,11 @@ def guardar_base_datos(db):
 def hashear_password(password):
     return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
-# --- CREDENCIALES OAUTH 2.0 (REEMPLAZAR CON TUS CLIENT_ID REALES) ---
-GOOGLE_CLIENT_ID = "TU_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
-FACEBOOK_APP_ID = "TU_FACEBOOK_APP_ID"
-REDIRECT_URI = "http://localhost:8501/"
+# --- CREDENCIALES OAUTH 2.0 REALES ---
+GOOGLE_CLIENT_ID = "634339650841-phifavamet5jp6c5q0lratdc5o2elpkt.apps.googleusercontent.com"
+FACEBOOK_APP_ID = "TU_FACEBOOK_APP_ID"  # Puedes dejarlo así por ahora si aún no configuras Facebook
+REDIRECT_URI = "https://chat-2026-mr7nx8ncjcgsdsln3oit6.streamlit.app/"
+
 
 # --- INICIALIZACIÓN DE ESTADO ---
 if "autenticado" not in st.session_state:
