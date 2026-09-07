@@ -112,7 +112,6 @@ GOOGLE_CLIENT_ID = "634339650841-phifavamet5jp6c5q0lratdc5o2elpkt.apps.googleuse
 FACEBOOK_APP_ID = "TU_FACEBOOK_APP_ID"  # Puedes dejarlo así por ahora si aún no configuras Facebook
 REDIRECT_URI = "https://chat-2026-mr7nx8ncjcgsdsln3oit6.streamlit.app/"
 
-
 # --- INICIALIZACIÓN DE ESTADO ---
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
@@ -128,8 +127,9 @@ google_params = {
     "client_id": GOOGLE_CLIENT_ID,
     "redirect_uri": REDIRECT_URI,
     "response_type": "code",
-    "scope": "openid email profile"
+    "scope": "openid email profile"  # <-- Cambiado de 'tcope' a 'scope'
 }
+
 google_oauth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urllib.parse.urlencode(google_params)}"
 
 facebook_params = {
