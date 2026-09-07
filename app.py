@@ -339,7 +339,7 @@ if not st.session_state.autenticado:
                     🔒 Canal Encriptado TLS 1.3 • Hashing SHA-256 • Soporte Técnico Nexus-Sec
                 </div>
             </div>
-        """, unsafe_allow_html=True)
+       """, unsafe_allow_html=True)
 else:
     # --- PANEL INTERNO Y HUB DE APLICACIONES DE EDINSON MARIN ---
     st.markdown("""
@@ -425,3 +425,4 @@ else:
         st.info("Monitoreo inmutable y control de accesos supervisados por Edinson Marin.")
         st.metric(label="Total de Utilidades Registradas", value=len(apps_db))
         st.metric(label="Estado del Firewall Perimetral", value="Óptimo / Blindado")
+    
