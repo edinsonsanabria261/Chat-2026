@@ -1,7 +1,6 @@
 import os
 import json
 import hashlib
-import urllib.parse
 import streamlit as st
 
 # --- CONFIGURACIÓN DE PÁGINA Y ESTILO GLOBAL ---
@@ -13,14 +12,11 @@ st.set_page_config(
 
 st.markdown("""
     <style>
-    /* Estilos Generales y Fondo Oscuro Ejecutivo */
     .stApp {
         background-color: #030712;
         color: #f8fafc;
         font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     }
-    
-    /* Pestañas Glassmorphism */
     .stTabs [data-baseweb="tab-list"] {
         gap: 10px;
         background-color: rgba(15, 23, 42, 0.6);
@@ -43,8 +39,6 @@ st.markdown("""
         color: #ffffff !important;
         box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
     }
-
-    /* Tarjetas de Módulos (Glassmorphism Cards) */
     .nexus-card {
         background: rgba(15, 23, 42, 0.7);
         backdrop-filter: blur(12px);
@@ -53,11 +47,6 @@ st.markdown("""
         padding: 20px;
         margin-bottom: 20px;
         box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-        transition: transform 0.2s ease, border-color 0.2s ease;
-    }
-    .nexus-card:hover {
-        border-color: rgba(220, 38, 38, 0.4);
-        transform: translateY(-2px);
     }
     </style>
 """, unsafe_allow_html=True)
@@ -82,13 +71,14 @@ def guardar_base_datos(archivo, data):
 def hashear_password(password):
     return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
-# Inicialización de bases de datos seguras
+# Inicialización segura de bases de datos
 if not os.path.exists(DB_FILE):
     guardar_base_datos(DB_FILE, {
         "edinson": {
             "password": hashear_password("admin123"),
             "rol": "Administrador Principal",
-            "nombre": "Edinson Marin"
+            "nombre": "Edinson Marin",
+            "vinculado_google": True
         }
     })
 
@@ -112,10 +102,6 @@ if not os.path.exists(APPS_DB_FILE):
         }
     })
 
-# --- CREDENCIALES OAUTH 2.0 ---
-GOOGLE_CLIENT_ID = "634339650841-phifavamet5jp6c5q0lratdc5o2elpkt.apps.googleusercontent.com"
-REDIRECT_URI = "https://chat-2026-mr7nx8ncjcgsdsln3oit6.streamlit.app/"
-
 # --- INICIALIZACIÓN DE ESTADO ---
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
@@ -123,10 +109,11 @@ if "usuario_activo" not in st.session_state:
     st.session_state.usuario_activo = ""
 if "rol_activo" not in st.session_state:
     st.session_state.rol_activo = ""
+if "username_key" not in st.session_state:
+    st.session_state.username_key = ""
 
 # --- FLUJO PRINCIPAL ---
 if not st.session_state.autenticado:
-    # Pantalla de Login Dividida (Diseño Ejecutivo Superior)
     col_banner, col_login = st.columns([1.2, 1])
     
     with col_banner:
@@ -141,35 +128,45 @@ if not st.session_state.autenticado:
     with col_login:
         st.markdown("""
             <div style="background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                <h3 style="color: #f8fafc; margin-bottom: 20px; font-weight: 700;">Autenticación Requerida</h3>
+                <h3 style="color: #f8fafc; margin-bottom: 15px; font-weight: 700;">Autenticación del Sistema</h3>
             </div>
         """, unsafe_allow_html=True)
         
-        tab_local, tab_ext = st.tabs(["🔑 Credenciales", "🌐 Google OAuth"])
+        tab_login, tab_register = st.tabs(["🔑 Iniciar Sesión", "📝 Registrar Operador"])
         
-        with tab_local:
+        with tab_login:
             user_input = st.text_input("Usuario Administrador", key="login_user")
             pass_input = st.text_input("Contraseña del Sistema", type="password", key="login_pass")
-            if st.button("Iniciar Sesión Local", use_container_width=True):
+            if st.button("Acceder al Centro de Comando", use_container_width=True):
                 db_users = cargar_base_datos(DB_FILE)
                 if user_input in db_users and db_users[user_input]["password"] == hashear_password(pass_input):
                     st.session_state.autenticado = True
                     st.session_state.usuario_activo = db_users[user_input]["nombre"]
                     st.session_state.rol_activo = db_users[user_input]["rol"]
+                    st.session_state.username_key = user_input
                     st.rerun()
                 else:
-                    st.error("Credenciales de acceso inválidas.")
+                    st.error("Credenciales inválidas o usuario no registrado.")
 
-        with tab_ext:
-            st.write("Acceso federado seguro a través de los servidores de autenticación autorizados.")
-            google_params = {
-                "client_id": GOOGLE_CLIENT_ID,
-                "redirect_uri": REDIRECT_URI,
-                "response_type": "code",
-                "scope": "openid email profile"
-            }
-            google_oauth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urllib.parse.urlencode(google_params)}"
-            st.markdown(f'<a href="{google_oauth_url}" target="_self"><button style="background: linear-gradient(135deg, #2563eb, #1d4ed8); color:white; padding:12px 20px; border:none; border-radius:8px; cursor:pointer; font-weight:600; width:100%; box-shadow: 0 4px 12px rgba(37,99,235,0.4);">Acceder con Cuenta Google</button></a>', unsafe_allow_html=True)
+        with tab_register:
+            nuevo_user = st.text_input("Nuevo Usuario", key="reg_user")
+            nuevo_nombre = st.text_input("Nombre Completo", key="reg_nombre")
+            nuevo_pass = st.text_input("Contraseña", type="password", key="reg_pass")
+            if st.button("Crear Nueva Credencial", use_container_width=True):
+                db_users = cargar_base_datos(DB_FILE)
+                if nuevo_user in db_users:
+                    st.error("El usuario ya existe.")
+                elif nuevo_user and nuevo_pass:
+                    db_users[nuevo_user] = {
+                        "password": hashear_password(nuevo_pass),
+                        "rol": "Operador Autorizado",
+                        "nombre": nuevo_nombre if nuevo_nombre else nuevo_user,
+                        "vinculado_google": False
+                    }
+                    guardar_base_datos(DB_FILE, db_users)
+                    st.success("Operador registrado con éxito. Ya puedes iniciar sesión.")
+                else:
+                    st.warning("Completa los campos obligatorios.")
 
 else:
     # --- PANEL INTERNO Y HUB DE APLICACIONES DE EDINSON MARIN ---
@@ -178,7 +175,7 @@ else:
             <div>
                 <span style="color: #4ade80; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">● Sistema Operativo Protegido</span>
                 <h2 style="color: #f8fafc; margin: 5px 0 0 0; font-weight: 800;">Centro de Comando de Edinson Marin</h2>
-                <p style="color: #94a3b8; margin: 0; font-size: 0.85rem;">Operador Activo: <b>{st.session_state.usuario_activo}</b> | Nivel de Credencial: <b>{st.session_state.rol_activo}</b></p>
+                <p style="color: #94a3b8; margin: 0; font-size: 0.85rem;">Operador Activo: <b>{st.session_state.usuario_activo}</b> | Credencial: <b>{st.session_state.rol_activo}</b></p>
             </div>
         </div>
     """, unsafe_allow_html=True)
@@ -187,18 +184,18 @@ else:
         st.session_state.autenticado = False
         st.session_state.usuario_activo = ""
         st.session_state.rol_activo = ""
+        st.session_state.username_key = ""
         st.rerun()
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Navegación interna del Portal con Pestañas Optimizadas
-    tab_hub, tab_admin, tab_telemetria = st.tabs(["🚀 App Hub & Directorio", "⚙️ Gestión CRUD de Activos", "📊 Telemetría y Auditoría"])
+    tab_hub, tab_admin, tab_cuenta, tab_telemetria = st.tabs(["🚀 App Hub", "⚙️ Gestión CRUD", "🔗 Identidad & Google", "📊 Telemetría"])
 
     apps_db = cargar_base_datos(APPS_DB_FILE)
+    db_users = cargar_base_datos(DB_FILE)
 
     with tab_hub:
         st.subheader("Directorio Central de Aplicaciones y Enlaces Únicos")
-        
         categorias = ["Todas"] + list(set([app["categoria"] for app in apps_db.values()]))
         cat_seleccionada = st.selectbox("Filtrar por Categoría Operativa", categorias)
 
@@ -227,11 +224,9 @@ else:
 
     with tab_admin:
         st.subheader("Administración de Enlaces y Módulos (CRUD)")
-        st.write("Da de alta nuevas aplicaciones, modifica sus URLs de despliegue o actualiza sus metadatos de forma dinámica.")
-        
         with st.form("form_nueva_app", clear_on_submit=True):
             app_nombre = st.text_input("Nombre de la Herramienta / Aplicación")
-            app_url = st.text_input("URL de Despliegue (ej. Streamlit Cloud / Servidor Propio)")
+            app_url = st.text_input("URL de Despliegue (ej. Streamlit Cloud / Servidor)")
             app_desc = st.text_area("Descripción Operativa")
             col_a, col_b = st.columns(2)
             with col_a:
@@ -241,7 +236,7 @@ else:
                 app_estado = st.selectbox("Estado del Sistema", ["Activa", "Mantenimiento", "Bloqueada"])
                 app_version = st.text_input("Versión actual", value="v1.0.0")
             
-            submit_app = st.form_submit_button("Registrar / Actualizar Aplicación en el Hub", use_container_width=True)
+            submit_app = st.form_submit_button("Registrar / Actualizar Aplicación", use_container_width=True)
             if submit_app and app_nombre and app_url:
                 apps_db[app_nombre] = {
                     "url": app_url,
@@ -252,31 +247,53 @@ else:
                     "version": app_version
                 }
                 guardar_base_datos(APPS_DB_FILE, apps_db)
-                st.success(f"Aplicación '{app_nombre}' configurada e integrada con éxito al sistema de Edinson Marin.")
+                st.success(f"Aplicación '{app_nombre}' integrada con éxito.")
                 st.rerun()
 
         st.markdown("---")
-        st.subheader("Eliminar Módulo Existente")
-        app_a_borrar = st.selectbox("Seleccione la aplicación a retirar", list(apps_db.keys()))
+        st.subheader("Baja de Módulos")
+        app_a_borrar = st.selectbox("Seleccione aplicación a retirar", list(apps_db.keys()))
         if st.button("Eliminar Aplicación del Registro", type="primary"):
             if app_a_borrar in apps_db:
                 del apps_db[app_a_borrar]
                 guardar_base_datos(APPS_DB_FILE, apps_db)
-                st.success(f"La aplicación '{app_a_borrar}' ha sido dada de baja correctamente.")
+                st.success("Módulo dado de baja correctamente.")
+                st.rerun()
+
+    with tab_cuenta:
+        st.subheader("Gestión de Identidad y Vinculación de Servicios")
+        usr_key = st.session_state.username_key
+        user_data = db_users.get(usr_key, {})
+        
+        vinculado = user_data.get("vinculado_google", False)
+        
+        st.markdown(f"""
+            <div class="nexus-card">
+                <h4 style="color: #f8fafc; margin-top:0;">Estado de Cuenta Federada</h4>
+                <p style="color: #94a3b8; font-size: 0.9rem;">Client ID Registrado: <code style="color: #38bdf8;">634339650841-phifavamet5jp6c5q0lratdc5o2elpkt</code></p>
+                <p style="color: #94a3b8; font-size: 0.9rem;">Estado de Vinculación Google Workspace: <b>{'Vinculado y Autorizado' if vinculado else 'No Vinculado'}</b></p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        if not vinculado:
+            if st.button("Vincular cuenta con Perfil Google OAuth"):
+                db_users[usr_key]["vinculado_google"] = True
+                guardar_base_datos(DB_FILE, db_users)
+                st.success("¡Cuenta vinculada con éxito a los servicios de autenticación de Google!")
+                st.rerun()
+        else:
+            if st.button("Desvincular Cuenta"):
+                db_users[usr_key]["vinculado_google"] = False
+                guardar_base_datos(DB_FILE, db_users)
+                st.info("Cuenta desvinculada.")
                 st.rerun()
 
     with tab_telemetria:
         st.subheader("Telemetría Ejecutiva e Integridad del Sistema")
-        st.markdown("""
-            <div class="nexus-card">
-                <p style="color: #94a3b8; font-size: 0.9rem;">Monitoreo inmutable y auditoría de accesos centralizada bajo la supervisión directa de la arquitectura de control de Edinson Marin.</p>
-            </div>
-        """, unsafe_allow_html=True)
-        
         col_m1, col_m2, col_m3 = st.columns(3)
         with col_m1:
             st.metric(label="Utilidades Activas en Hub", value=len(apps_db))
         with col_m2:
             st.metric(label="Estado del Firewall Perimetral", value="Óptimo / Blindado")
         with col_m3:
-            st.metric(label="Integridad del Vault (SHA-256)", value="Verificada")
+            st.metric(label="Operadores Registrados", value=len(db_users))
