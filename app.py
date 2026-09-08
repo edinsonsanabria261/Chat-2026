@@ -64,6 +64,8 @@ if "usuario_activo" not in st.session_state:
     st.session_state.usuario_activo = ""
 if "rol_activo" not in st.session_state:
     st.session_state.rol_activo = ""
+if "username_key" not in st.session_state:
+    st.session_state.username_key = ""
 
 # --- FLUJO PRINCIPAL ---
 if not st.session_state.autenticado:
@@ -93,6 +95,7 @@ if not st.session_state.autenticado:
                     st.session_state.autenticado = True
                     st.session_state.usuario_activo = db_users[user_input]["nombre"]
                     st.session_state.rol_activo = db_users[user_input]["rol"]
+                    st.session_state.username_key = user_input
                     st.rerun()
                 else:
                     st.error("Credenciales inválidas.")
@@ -144,6 +147,7 @@ else:
         st.session_state.autenticado = False
         st.session_state.usuario_activo = ""
         st.session_state.rol_activo = ""
+        st.session_state.username_key = ""
         st.rerun()
 
     st.markdown("---")
@@ -174,6 +178,8 @@ else:
 
     with tab_admin:
         st.subheader("Administración de Herramientas (CRUD)")
+        st.info("🔒 Sección protegida con contraseña para autorizar cambios.")
+        
         with st.form("form_app"):
             app_nombre = st.text_input("Nombre de la Aplicación")
             app_url = st.text_input("URL de Despliegue")
@@ -183,16 +189,30 @@ else:
             app_estado = st.selectbox("Estado", ["Activa", "Mantenimiento", "Bloqueada"])
             app_version = st.text_input("Versión", value="v1.0.0")
             
-            if st.form_submit_button("Guardar Aplicación") and app_nombre:
-                apps_db[app_nombre] = {
-                    "url": app_url, "descripcion": app_desc, "categoria": app_cat,
-                    "permiso": app_permiso, "estado": app_estado, "version": app_version
-                }
-                guardar_base_datos(APPS_DB_FILE, apps_db)
-                st.success("Guardado correctamente.")
-                st.rerun()
+            # --- CAMPO DE CONTRASEÑA AGREGADO PARA PROTEGER EL CRUD ---
+            crud_pass_confirm = st.text_input("Confirma tu contraseña para guardar cambios", type="password")
+            
+            if st.form_submit_button("Guardar Aplicación"):
+                db_users = cargar_base_datos(DB_FILE)
+                user_key = st.session_state.username_key
+                
+                # Validar que la contraseña introducida coincida con la del usuario logueado
+                if user_key in db_users and db_users[user_key]["password"] == hashear_password(crud_pass_confirm):
+                    if app_nombre:
+                        apps_db[app_nombre] = {
+                            "url": app_url, "descripcion": app_desc, "categoria": app_cat,
+                            "permiso": app_permiso, "estado": app_estado, "version": app_version
+                        }
+                        guardar_base_datos(APPS_DB_FILE, apps_db)
+                        st.success("Guardado correctamente.")
+                        st.rerun()
+                    else:
+                        st.warning("El nombre de la aplicación es obligatorio.")
+                else:
+                    st.error("Contraseña incorrecta. No se pudieron aplicar los cambios.")
 
     with tab_telemetria:
         st.subheader("Telemetría del Sistema")
         st.metric("Total de Aplicaciones", len(apps_db))
         st.metric("Estado del Nodo", "Estable / Seguro")
+            
