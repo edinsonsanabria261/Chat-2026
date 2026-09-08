@@ -215,4 +215,3 @@ else:
         st.subheader("Telemetría del Sistema")
         st.metric("Total de Aplicaciones", len(apps_db))
         st.metric("Estado del Nodo", "Estable / Seguro")
-            
