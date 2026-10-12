@@ -1,8 +1,6 @@
-import { currentSession, loginUser, logoutUser, registerUser } from "./auth.js";
+import { loginUser, logoutUser, refreshSession, registerUser } from "./auth.js";
 import {
   deleteSelectedApp,
-  renderCrud,
-  renderHub,
   saveAppFromForm,
   showAuthTab,
   showPanel,
@@ -14,14 +12,21 @@ function showError(id, error) {
   $(id).textContent = error?.message || error || "No se pudo completar la acción.";
 }
 
-function paintSession() {
-  const logged = Boolean(currentSession());
-  $("view-login").hidden = logged;
-  $("view-app").hidden = !logged;
-  if (!logged) return;
-  const session = currentSession();
+async function paintSession() {
+  const session = await refreshSession();
+  $("view-login").hidden = Boolean(session);
+  $("view-app").hidden = !session;
+  if (!session) return;
   $("session-line").textContent = `Sesión activa · ${session.nombre} · ${session.rol}`;
-  showPanel("hub");
+  await showPanel("hub");
+}
+
+async function openPanel(name) {
+  try {
+    await showPanel(name);
+  } catch (error) {
+    showError("crud-error", error);
+  }
 }
 
 $("tab-login").addEventListener("click", () => showAuthTab("login"));
@@ -66,24 +71,21 @@ $("panel-register").addEventListener("submit", async (event) => {
   }
 });
 
-$("logout").addEventListener("click", () => {
-  logoutUser();
-  paintSession();
+$("logout").addEventListener("click", async () => {
+  await logoutUser();
+  await paintSession();
 });
 
-$("tab-hub").addEventListener("click", () => showPanel("hub"));
-$("tab-crud").addEventListener("click", () => showPanel("crud"));
-$("tab-telemetry").addEventListener("click", () => showPanel("telemetry"));
-$("filter-category").addEventListener("change", renderHub);
-$("edit-target").addEventListener("change", renderCrud);
+$("tab-hub").addEventListener("click", () => openPanel("hub"));
+$("tab-crud").addEventListener("click", () => openPanel("crud"));
+$("tab-telemetry").addEventListener("click", () => openPanel("telemetry"));
+$("filter-category").addEventListener("change", () => openPanel("hub"));
+$("edit-target").addEventListener("change", () => openPanel("crud"));
 
 $("form-app").addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
-    if (await saveAppFromForm()) {
-      renderCrud();
-      renderHub();
-    }
+    if (await saveAppFromForm()) await openPanel("crud");
   } catch (error) {
     showError("crud-error", error);
   }
@@ -91,10 +93,7 @@ $("form-app").addEventListener("submit", async (event) => {
 
 $("delete-app").addEventListener("click", async () => {
   try {
-    if (await deleteSelectedApp()) {
-      renderCrud();
-      renderHub();
-    }
+    if (await deleteSelectedApp()) await openPanel("crud");
   } catch (error) {
     showError("crud-error", error);
   }

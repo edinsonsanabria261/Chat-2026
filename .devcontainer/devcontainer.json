@@ -1,6 +1,6 @@
 {
   "name": "Chat-2026",
-  "image": "mcr.microsoft.com/devcontainers/base:bookworm",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
   "forwardPorts": [8080],
   "portsAttributes": {
     "8080": {
@@ -8,5 +8,5 @@
       "onAutoForward": "openPreview"
     }
   },
-  "postAttachCommand": "python3 -m http.server 8080"
+  "postAttachCommand": "npm install && npm start"
 }

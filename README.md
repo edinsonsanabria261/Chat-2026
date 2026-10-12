@@ -1,28 +1,38 @@
 # Chat-2026
 
-Portal Nexus-Sec: acceso, directorio de aplicaciones, gestión y telemetría.
-
-El diseño sigue el portal original. La interfaz está en CSS y la lógica en módulos JavaScript.
+Portal Nexus-Sec con cuentas compartidas. El diseño sigue en `css/styles.css`. El acceso y el directorio los guarda el servidor.
 
 ```
 index.html          pantalla
 css/styles.css      diseño
-js/main.js          eventos
-js/auth.js          registro, sesión y contraseña
-js/portal.js        hub, gestión y telemetría
-js/store.js         datos del navegador
+js/                 interfaz
+server/index.js     acceso, directorio y telemetría
+server/db.js        archivo de datos
 ```
 
-## Cómo abrirlo
+La primera cuenta registrada es la administradora. Las siguientes solo consultan.
 
-Hace falta HTTPS o un servidor local. Abrir el archivo directo no puede proteger la contraseña.
+## Render
+
+En el formulario de Web Service deja estos valores:
+
+| Campo | Valor |
+|---|---|
+| Name | Chat-2026 |
+| Language | Node |
+| Branch | main |
+| Region | Oregon |
+| Root Directory | vacío |
+| Build Command | yarn |
+| Start Command | yarn start |
+
+No hace falta una clave en este paso. Después de crearlo, en Disks añade un disco montado en `/data` y en Environment crea `DATA_DIR` = `/data`. Sin ese disco el portal arranca, pero olvida las cuentas en cada despliegue.
+
+## Local
 
 ```bash
-python3 -m http.server 8080
+npm install
+npm start
 ```
 
-Entra en `http://127.0.0.1:8080`.
-
-La primera cuenta que se registre queda como administrador. Las siguientes entran como operador y pueden ver el directorio, no editarlo.
-
-Los datos se guardan en este navegador. No hay servidor ni cuentas compartidas entre equipos.
+Abre `http://127.0.0.1:8080`.
