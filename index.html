@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nexus-Sec | Portal</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <main id="view-login" class="login-layout" hidden>
+    <section class="hero" aria-label="Nexus-Sec Suite">
+      <p class="eyebrow">Nexus-Sec Suite</p>
+      <h1>Protege tu infraestructura sin caer en vulnerabilidades</h1>
+      <p class="hero-copy">Análisis de seguridad, directorio de herramientas y control de accesos en un solo portal.</p>
+    </section>
+
+    <section class="auth-card" aria-label="Acceso al sistema">
+      <h2>Acceso al Sistema</h2>
+      <p class="muted">Inicia sesión o regístrate en NEXUS-SEC</p>
+
+      <div class="tabs" role="tablist" aria-label="Acceso">
+        <button type="button" id="tab-login" role="tab" aria-selected="true" aria-controls="panel-login">Iniciar Sesión</button>
+        <button type="button" id="tab-register" role="tab" aria-selected="false" aria-controls="panel-register">Registro</button>
+      </div>
+
+      <form id="panel-login" class="panel" role="tabpanel">
+        <label for="login-user">Usuario</label>
+        <input id="login-user" name="username" autocomplete="username" required />
+        <label for="login-pass">Contraseña</label>
+        <input id="login-pass" name="password" type="password" autocomplete="current-password" required />
+        <p id="login-error" class="form-error" role="alert"></p>
+        <button class="btn-primary" type="submit">Iniciar Sesión</button>
+      </form>
+
+      <form id="panel-register" class="panel" role="tabpanel" hidden>
+        <label for="reg-user">Nuevo usuario</label>
+        <input id="reg-user" name="username" autocomplete="username" required />
+        <label for="reg-name">Nombre completo</label>
+        <input id="reg-name" name="nombre" autocomplete="name" />
+        <label for="reg-pass">Contraseña</label>
+        <input id="reg-pass" name="password" type="password" autocomplete="new-password" required minlength="8" />
+        <p id="register-error" class="form-error" role="alert"></p>
+        <p id="register-ok" class="form-ok" role="status"></p>
+        <button class="btn-primary" type="submit">Registrarse</button>
+      </form>
+
+      <p class="fine-print">La cuenta vive solo en este navegador. Ábrelo con HTTPS o un servidor local.</p>
+    </section>
+  </main>
+
+  <main id="view-app" class="app-shell" hidden>
+    <header class="command">
+      <div>
+        <h2>Centro de Comando</h2>
+        <p id="session-line"></p>
+      </div>
+      <button id="logout" class="btn-ghost" type="button">Cerrar Sesión</button>
+    </header>
+
+    <div class="tabs" role="tablist" aria-label="Portal">
+      <button type="button" id="tab-hub" role="tab" aria-selected="true">App Hub</button>
+      <button type="button" id="tab-crud" role="tab" aria-selected="false">Gestión</button>
+      <button type="button" id="tab-telemetry" role="tab" aria-selected="false">Telemetría</button>
+    </div>
+
+    <section id="panel-hub" class="panel-block">
+      <div class="panel-head">
+        <h3>Directorio de aplicaciones</h3>
+        <label class="filter">
+          Categoría
+          <select id="filter-category"></select>
+        </label>
+      </div>
+      <div id="app-grid" class="app-grid"></div>
+    </section>
+
+    <section id="panel-crud" class="panel-block" hidden>
+      <h3>Administración de herramientas</h3>
+      <p id="crud-note" class="muted"></p>
+      <form id="form-app" class="crud-form">
+        <label for="edit-target">Aplicación</label>
+        <select id="edit-target"></select>
+
+        <label for="app-name">Nombre</label>
+        <input id="app-name" required />
+
+        <label for="app-url">URL de despliegue</label>
+        <input id="app-url" type="url" placeholder="https://" required />
+
+        <label for="app-desc">Descripción</label>
+        <textarea id="app-desc" rows="3" required></textarea>
+
+        <div class="form-row">
+          <label>Categoría
+            <select id="app-cat">
+              <option>Ciberseguridad</option>
+              <option>Forense</option>
+              <option>Utilidades</option>
+              <option>Automatización</option>
+            </select>
+          </label>
+          <label>Permiso
+            <select id="app-permiso">
+              <option>Libre</option>
+              <option>Limitado</option>
+              <option>Restringido</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Estado
+            <select id="app-estado">
+              <option>Activa</option>
+              <option>Mantenimiento</option>
+              <option>Bloqueada</option>
+            </select>
+          </label>
+          <label>Versión
+            <input id="app-version" value="v1.0.0" required />
+          </label>
+        </div>
+
+        <label for="crud-pass">Contraseña para confirmar</label>
+        <input id="crud-pass" type="password" autocomplete="current-password" />
+        <p id="crud-error" class="form-error" role="alert"></p>
+        <div class="crud-actions">
+          <button class="btn-primary" type="submit">Guardar aplicación</button>
+          <button id="delete-app" class="btn-danger" type="button">Eliminar</button>
+        </div>
+      </form>
+    </section>
+
+    <section id="panel-telemetry" class="panel-block" hidden>
+      <h3>Telemetría del sistema</h3>
+      <div id="metrics" class="metrics"></div>
+    </section>
+  </main>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
