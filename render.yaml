@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: Chat-2026
+    runtime: node
+    plan: starter
+    region: oregon
+    branch: main
+    buildCommand: yarn
+    startCommand: yarn start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: DATA_DIR
+        value: /data
+    disk:
+      name: chat-data
+      mountPath: /data
+      sizeGB: 1
