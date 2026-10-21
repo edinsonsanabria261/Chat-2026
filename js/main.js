@@ -53,19 +53,25 @@ $("panel-register").addEventListener("submit", async (event) => {
   $("register-error").textContent = "";
   $("register-ok").textContent = "";
   try {
+    const password = $("reg-pass").value;
+    const confirm = $("reg-pass2").value;
+    if (password !== confirm) {
+      $("register-error").textContent = "Las contraseñas no coinciden.";
+      return;
+    }
     const result = await registerUser({
       username: $("reg-user").value,
       nombre: $("reg-name").value,
-      password: $("reg-pass").value,
+      password,
+      confirm,
     });
     if (!result.ok) {
       $("register-error").textContent = result.error;
       return;
     }
     $("reg-pass").value = "";
-    $("register-ok").textContent = "Registro listo. Ya puedes iniciar sesión.";
-    showAuthTab("login");
-    $("login-user").value = $("reg-user").value.trim();
+    $("reg-pass2").value = "";
+    await paintSession();
   } catch (error) {
     showError("register-error", error);
   }

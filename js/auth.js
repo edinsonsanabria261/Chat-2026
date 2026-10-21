@@ -1,15 +1,33 @@
 let session = null;
 
-async function request(path, payload) {
+function csrfToken() {
+  const part = document.cookie.split("; ").find((row) => row.startsWith("nexus_csrf="));
+  return part ? decodeURIComponent(part.slice("nexus_csrf=".length)) : "";
+}
+
+export async function api(path, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  if (options.body) {
+    headers["Content-Type"] = "application/json";
+    headers["X-CSRF-Token"] = csrfToken();
+  }
   const response = await fetch(path, {
-    method: payload ? "POST" : "GET",
     credentials: "same-origin",
-    headers: payload ? { "Content-Type": "application/json" } : undefined,
-    body: payload ? JSON.stringify(payload) : undefined,
+    ...options,
+    headers,
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) return { ok: false, error: data.error || "No se pudo completar la acción." };
-  return { ok: true, data };
+  if (!response.ok) throw new Error(data.error || "No se pudo completar la acción.");
+  return data;
+}
+
+async function request(path, payload) {
+  try {
+    const data = await api(path, payload ? { method: "POST", body: JSON.stringify(payload) } : {});
+    return { ok: true, data };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
 }
 
 export function currentSession() {
@@ -17,20 +35,24 @@ export function currentSession() {
 }
 
 export async function refreshSession() {
-  const result = await request("/api/me");
-  session = result.ok ? result.data : null;
+  try {
+    session = await api("/api/me");
+  } catch {
+    session = null;
+  }
   return session;
 }
 
-export async function registerUser({ username, nombre, password }) {
-  return request("/api/register", { username, nombre, password });
+export async function registerUser(payload) {
+  const result = await request("/api/register", payload);
+  if (result.ok) session = result.data;
+  return result;
 }
 
 export async function loginUser(username, password) {
   const result = await request("/api/login", { username, password });
-  if (!result.ok) return result;
-  session = result.data;
-  return { ok: true };
+  if (result.ok) session = result.data;
+  return result;
 }
 
 export async function logoutUser() {

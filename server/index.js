@@ -1,130 +1,210 @@
 import path from "node:path";
 import crypto from "node:crypto";
+import { fileURLToPath } from "node:url";
 import express from "express";
-import { hashPassword, hashToken, sameSecret, updateDb } from "./db.js";
+import { freshVault, updateDb } from "./db.js";
+import {
+  applyHeaders,
+  clearSession,
+  clientIp,
+  csrfOk,
+  deriveVaultKey,
+  forgetVaultKey,
+  hashPassword,
+  hashToken,
+  openVault,
+  passwordMatches,
+  passwordProblem,
+  readCookie,
+  rememberVaultKey,
+  sameOrigin,
+  sealVault,
+  tooManyAttempts,
+  usernameKey,
+  usernameProblem,
+  vaultKeyFor,
+  writeSession,
+} from "./security.js";
 
 const app = express();
-const root = process.cwd();
-const WEEK = 7 * 24 * 60 * 60;
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const WEEK = 7 * 24 * 60 * 60 * 1000;
+const LOCK = 15 * 60 * 1000;
 
 app.disable("x-powered-by");
-app.use(express.json({ limit: "100kb" }));
-
-function cookie(req, name) {
-  const source = req.headers.cookie || "";
-  for (const part of source.split(";")) {
-    const [key, ...rest] = part.trim().split("=");
-    if (key === name) return decodeURIComponent(rest.join("="));
-  }
-  return "";
-}
-
-function sendCookie(res, token) {
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  res.setHeader(
-    "Set-Cookie",
-    `nexus_sid=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${WEEK}${secure}`,
-  );
-}
-
-function clearCookie(res) {
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  res.setHeader("Set-Cookie", `nexus_sid=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secure}`);
-}
+app.set("trust proxy", 1);
+app.use(express.json({ limit: "32kb" }));
+app.use((_req, res, next) => {
+  applyHeaders(res);
+  next();
+});
 
 function publicUser(username, user) {
   return { username, nombre: user.nombre, rol: user.rol };
 }
 
-function currentUser(db, req) {
-  const token = cookie(req, "nexus_sid");
+function findUser(db, username) {
+  if (db.users[username]) return { key: username, user: db.users[username] };
+  const found = Object.keys(db.users).find((name) => name.toLowerCase() === username);
+  return found ? { key: found, user: db.users[found] } : { key: username, user: null };
+}
+
+function sessionOf(db, req) {
+  const token = readCookie(req, "nexus_sid");
   if (!token) return null;
-  const session = db.sessions[hashToken(token)];
+  const id = hashToken(token);
+  const session = db.sessions[id];
   if (!session || session.expires < Date.now()) return null;
-  const user = db.users[session.username];
-  if (!user) return null;
-  return publicUser(session.username, user);
+  if (!db.users[session.username]) return null;
+  if (!vaultKeyFor(id)) return null;
+  return { ...session, id };
 }
 
-function validUsername(value) {
-  return /^[a-zA-Z0-9._-]{3,32}$/.test(value);
+function openSession(db, username) {
+  const token = crypto.randomBytes(32).toString("base64url");
+  const csrf = crypto.randomBytes(32).toString("base64url");
+  db.sessions[hashToken(token)] = { username, csrf, expires: Date.now() + WEEK };
+  return { token, csrf };
 }
 
-function validUrl(value) {
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.href : "";
-  } catch {
-    return "";
-  }
+function requireUser(req, db) {
+  if (!sameOrigin(req)) return { error: "Solicitud rechazada.", status: 403 };
+  const session = sessionOf(db, req);
+  if (!session) return { error: "Sin sesión.", status: 401 };
+  if (!csrfOk(req, session)) return { error: "La protección de la sesión caducó. Vuelve a entrar.", status: 403 };
+  return { session, user: publicUser(session.username, db.users[session.username]) };
 }
 
 app.get("/api/me", (req, res) => {
-  updateDb((db) => currentUser(db, req)).then((user) => {
-    if (!user) return res.status(401).json({ error: "Sin sesión." });
-    res.json(user);
+  updateDb((db) => {
+    const session = sessionOf(db, req);
+    if (!session) return null;
+    if (!session.csrf) session.csrf = crypto.randomBytes(32).toString("base64url");
+    return { session, user: publicUser(session.username, db.users[session.username]) };
+  }).then((result) => {
+    if (!result) return res.status(401).json({ error: "Sin sesión." });
+    writeSession(res, { token: readCookie(req, "nexus_sid"), csrf: result.session.csrf });
+    res.json(result.user);
   }).catch(() => res.status(500).json({ error: "No se pudo leer la sesión." }));
 });
 
 app.post("/api/register", (req, res) => {
-  const username = String(req.body?.username || "").trim();
-  const nombre = String(req.body?.nombre || "").trim();
+  if (!sameOrigin(req)) return res.status(403).json({ error: "Solicitud rechazada." });
+  if (tooManyAttempts(`reg:${clientIp(req)}`, 8, 10 * 60 * 1000)) {
+    return res.status(429).json({ error: "Demasiados intentos. Espera unos minutos." });
+  }
+  const username = usernameKey(req.body?.username);
+  const nombre = String(req.body?.nombre || "").trim().slice(0, 80);
   const password = String(req.body?.password || "");
-  if (!validUsername(username)) {
-    return res.status(400).json({ error: "El usuario debe tener 3 a 32 caracteres, sin espacios." });
-  }
-  if (password.length < 8) {
-    return res.status(400).json({ error: "La contraseña necesita al menos 8 caracteres." });
-  }
-  hashPassword(password).then((secret) => updateDb((db) => {
-    if (db.users[username]) return { error: "El usuario ya existe.", status: 409 };
-    db.users[username] = {
-      nombre: nombre || username,
-      rol: Object.keys(db.users).length === 0 ? "Administrador Principal" : "Operador",
-      salt: secret.salt,
-      hash: secret.hash,
-    };
-    return { ok: true };
-  })).then((result) => {
+  const confirm = String(req.body?.confirm || "");
+  const userError = usernameProblem(username);
+  if (userError) return res.status(400).json({ error: userError });
+  const passError = passwordProblem(password);
+  if (passError) return res.status(400).json({ error: passError });
+  if (password !== confirm) return res.status(400).json({ error: "Las contraseñas no coinciden." });
+
+  hashPassword(password).then(async (secret) => {
+    const vaultSalt = crypto.randomBytes(16).toString("base64url");
+    const vaultKey = await deriveVaultKey(password, vaultSalt);
+    return updateDb((db) => {
+      if (findUser(db, username).user) return { error: "Ese usuario ya existe.", status: 409 };
+      db.users[username] = {
+        nombre: nombre || username,
+        rol: Object.keys(db.users).length === 0 ? "Administrador Principal" : "Usuario",
+        algo: secret.algo,
+        salt: secret.salt,
+        hash: secret.hash,
+        vaultSalt,
+        failed: 0,
+        lockedUntil: 0,
+      };
+      const opened = openSession(db, username);
+      db.vaults[username] = sealVault(vaultKey, freshVault());
+      rememberVaultKey(hashToken(opened.token), vaultKey);
+      return { session: opened, user: publicUser(username, db.users[username]) };
+    });
+  }).then((result) => {
     if (result.error) return res.status(result.status || 400).json({ error: result.error });
-    res.status(201).json({ ok: true });
-  }).catch(() => res.status(500).json({ error: "No se pudo registrar." }));
+    writeSession(res, result.session);
+    res.status(201).json(result.user);
+  }).catch(() => res.status(500).json({ error: "No se pudo crear la cuenta." }));
 });
 
 app.post("/api/login", (req, res) => {
-  const username = String(req.body?.username || "").trim();
+  if (!sameOrigin(req)) return res.status(403).json({ error: "Solicitud rechazada." });
+  const ip = clientIp(req);
+  if (tooManyAttempts(`login:${ip}`, 10, 10 * 60 * 1000)) {
+    return res.status(429).json({ error: "Demasiados intentos. Espera unos minutos." });
+  }
+  const username = usernameKey(req.body?.username);
   const password = String(req.body?.password || "");
   updateDb(async (db) => {
-    const user = db.users[username];
-    const fake = { salt: "missing", hash: "missing" };
-    const secret = await hashPassword(password, user?.salt || fake.salt);
-    const matches = user ? sameSecret(secret.hash, user.hash) : false;
-    if (!user || !matches) return { error: "Credenciales inválidas." };
-    const token = crypto.randomBytes(32).toString("base64url");
-    db.sessions[hashToken(token)] = { username, expires: Date.now() + WEEK * 1000 };
-    return { token, user: publicUser(username, user) };
+    const found = findUser(db, username);
+    if (found.user?.lockedUntil > Date.now()) {
+      return { error: "Demasiados intentos. Espera unos minutos.", status: 429 };
+    }
+    const matches = await passwordMatches(password, found.user);
+    if (!found.user || !matches) {
+      if (found.user) {
+        found.user.failed = (found.user.failed || 0) + 1;
+        if (found.user.failed >= 5) {
+          found.user.lockedUntil = Date.now() + LOCK;
+          found.user.failed = 0;
+        }
+      }
+      return { error: "Usuario o contraseña incorrectos.", status: 401 };
+    }
+    found.user.failed = 0;
+    found.user.lockedUntil = 0;
+    if (!found.user.vaultSalt) found.user.vaultSalt = crypto.randomBytes(16).toString("base64url");
+    const vaultKey = await deriveVaultKey(password, found.user.vaultSalt);
+    const blob = db.vaults[found.key];
+    if (!blob?.v) db.vaults[found.key] = sealVault(vaultKey, blob?.apps ? blob : freshVault());
+    for (const [key, session] of Object.entries(db.sessions)) {
+      if (session.username === found.key) {
+        forgetVaultKey(key);
+        delete db.sessions[key];
+      }
+    }
+    const opened = openSession(db, found.key);
+    rememberVaultKey(hashToken(opened.token), vaultKey);
+    return { session: opened, user: publicUser(found.key, found.user) };
   }).then((result) => {
-    if (result.error) return res.status(401).json({ error: result.error });
-    sendCookie(res, result.token);
+    if (result.error) return res.status(result.status || 401).json({ error: result.error });
+    writeSession(res, result.session);
     res.json(result.user);
   }).catch(() => res.status(500).json({ error: "No se pudo entrar." }));
 });
 
 app.post("/api/logout", (req, res) => {
-  const token = cookie(req, "nexus_sid");
   updateDb((db) => {
-    if (token) delete db.sessions[hashToken(token)];
+    const session = sessionOf(db, req);
+    if (session && csrfOk(req, session)) {
+      forgetVaultKey(session.id);
+      delete db.sessions[session.id];
+    }
   }).then(() => {
-    clearCookie(res);
+    clearSession(res);
     res.json({ ok: true });
   }).catch(() => res.status(500).json({ error: "No se pudo cerrar la sesión." }));
 });
 
+function readVault(db, session) {
+  const key = vaultKeyFor(session.id);
+  const blob = db.vaults[session.username];
+  if (!blob?.v) return freshVault();
+  return openVault(key, blob);
+}
+
+function saveVault(db, session, vault) {
+  db.vaults[session.username] = sealVault(vaultKeyFor(session.id), vault);
+}
+
 app.get("/api/apps", (req, res) => {
   updateDb((db) => {
-    const user = currentUser(db, req);
-    if (!user) return { error: "Sin sesión.", status: 401 };
-    return { apps: db.apps };
+    const session = sessionOf(db, req);
+    if (!session) return { error: "Sin sesión.", status: 401 };
+    return { apps: readVault(db, session).apps };
   }).then((result) => {
     if (result.error) return res.status(result.status).json({ error: result.error });
     res.json(result.apps);
@@ -133,7 +213,13 @@ app.get("/api/apps", (req, res) => {
 
 function cleanApp(body) {
   const nombre = String(body?.nombre || "").trim();
-  const url = validUrl(String(body?.url || "").trim());
+  let url = "";
+  try {
+    const parsed = new URL(String(body?.url || "").trim());
+    if (parsed.protocol === "https:" || parsed.protocol === "http:") url = parsed.href;
+  } catch {
+    url = "";
+  }
   const descripcion = String(body?.descripcion || "").trim();
   const categorias = ["Ciberseguridad", "Forense", "Utilidades", "Automatización"];
   const permisos = ["Libre", "Limitado", "Restringido"];
@@ -149,25 +235,23 @@ function cleanApp(body) {
   return { nombre, app: { url, descripcion, categoria, permiso, estado, version } };
 }
 
-async function authorizedAdmin(db, req, password) {
-  const user = currentUser(db, req);
-  if (!user) return { error: "Sin sesión.", status: 401 };
-  if (user.rol !== "Administrador Principal") return { error: "Solo el administrador puede cambiar el directorio.", status: 403 };
-  const record = db.users[user.username];
-  const secret = await hashPassword(String(password || ""), record.salt);
-  if (!sameSecret(secret.hash, record.hash)) return { error: "Contraseña incorrecta. No se aplicaron cambios.", status: 403 };
-  return { user };
-}
-
 app.post("/api/apps", (req, res) => {
   const cleaned = cleanApp(req.body);
   if (cleaned.error) return res.status(400).json({ error: cleaned.error });
-  updateDb(async (db) => {
-    const auth = await authorizedAdmin(db, req, req.body?.password);
+  updateDb((db) => {
+    const auth = requireUser(req, db);
     if (auth.error) return auth;
+    let vault;
+    try {
+      vault = readVault(db, auth.session);
+    } catch {
+      return { error: "No se pudieron abrir tus datos. Vuelve a entrar.", status: 401 };
+    }
+    const apps = vault.apps;
     const original = String(req.body?.original || "");
-    if (original && original !== cleaned.nombre) delete db.apps[original];
-    db.apps[cleaned.nombre] = cleaned.app;
+    if (original && original !== cleaned.nombre) delete apps[original];
+    apps[cleaned.nombre] = cleaned.app;
+    saveVault(db, auth.session, vault);
     return { ok: true };
   }).then((result) => {
     if (result.error) return res.status(result.status || 400).json({ error: result.error });
@@ -178,11 +262,19 @@ app.post("/api/apps", (req, res) => {
 app.delete("/api/apps", (req, res) => {
   const nombre = String(req.body?.nombre || "").trim();
   if (!nombre) return res.status(400).json({ error: "Elige una aplicación para eliminarla." });
-  updateDb(async (db) => {
-    const auth = await authorizedAdmin(db, req, req.body?.password);
+  updateDb((db) => {
+    const auth = requireUser(req, db);
     if (auth.error) return auth;
-    if (!db.apps[nombre]) return { error: "Esa aplicación ya no está.", status: 404 };
-    delete db.apps[nombre];
+    let vault;
+    try {
+      vault = readVault(db, auth.session);
+    } catch {
+      return { error: "No se pudieron abrir tus datos. Vuelve a entrar.", status: 401 };
+    }
+    const apps = vault.apps;
+    if (!apps[nombre]) return { error: "Esa aplicación ya no está.", status: 404 };
+    delete apps[nombre];
+    saveVault(db, auth.session, vault);
     return { ok: true };
   }).then((result) => {
     if (result.error) return res.status(result.status || 400).json({ error: result.error });
@@ -192,15 +284,15 @@ app.delete("/api/apps", (req, res) => {
 
 app.get("/api/telemetry", (req, res) => {
   updateDb((db) => {
-    if (!currentUser(db, req)) return { error: "Sin sesión.", status: 401 };
-    const apps = Object.values(db.apps);
+    const session = sessionOf(db, req);
+    if (!session) return { error: "Sin sesión.", status: 401 };
+    const apps = Object.values(readVault(db, session).apps);
     return {
       counts: {
         Total: apps.length,
         Activas: apps.filter((item) => item.estado === "Activa").length,
         Mantenimiento: apps.filter((item) => item.estado === "Mantenimiento").length,
         Bloqueadas: apps.filter((item) => item.estado === "Bloqueada").length,
-        Cuentas: Object.keys(db.users).length,
       },
     };
   }).then((result) => {

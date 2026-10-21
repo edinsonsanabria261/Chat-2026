@@ -1,21 +1,10 @@
-import { currentSession } from "./auth.js";
+import { api } from "./auth.js";
 
 const $ = (id) => document.getElementById(id);
 let appsCache = {};
 
 function clear(node) {
   node.replaceChildren();
-}
-
-async function request(path, options = {}) {
-  const response = await fetch(path, {
-    credentials: "same-origin",
-    headers: options.body ? { "Content-Type": "application/json" } : undefined,
-    ...options,
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || "No se pudo completar la acción.");
-  return data;
 }
 
 function cardMetaClass(estado) {
@@ -25,7 +14,7 @@ function cardMetaClass(estado) {
 }
 
 export async function renderHub() {
-  appsCache = await request("/api/apps");
+  appsCache = await api("/api/apps");
   const select = $("filter-category");
   const previous = select.value || "Todas";
   const categories = ["Todas", ...new Set(Object.values(appsCache).map((app) => app.categoria))];
@@ -84,14 +73,8 @@ function fillForm(name) {
 }
 
 export async function renderCrud() {
-  appsCache = await request("/api/apps");
-  const admin = currentSession()?.rol === "Administrador Principal";
-  $("crud-note").textContent = admin
-    ? "Confirma con tu contraseña antes de guardar o eliminar."
-    : "Solo el administrador principal puede cambiar el directorio.";
-  [...$("form-app").elements].forEach((field) => {
-    field.disabled = !admin;
-  });
+  appsCache = await api("/api/apps");
+  $("crud-note").textContent = "Estas aplicaciones son solo tuyas. Otra cuenta no puede verlas ni cambiarlas.";
   const select = $("edit-target");
   const previous = select.value;
   clear(select);
@@ -106,11 +89,11 @@ export async function renderCrud() {
     select.append(option);
   });
   select.value = [...select.options].some((option) => option.value === previous) ? previous : "";
-  if (admin) fillForm(select.value);
+  fillForm(select.value);
 }
 
 export async function renderTelemetry() {
-  const counts = await request("/api/telemetry");
+  const counts = await api("/api/telemetry");
   const box = $("metrics");
   clear(box);
   Object.entries(counts).forEach(([label, value]) => {
@@ -135,15 +118,13 @@ export function readAppForm() {
     estado: $("app-estado").value,
     version: $("app-version").value.trim() || "v1.0.0",
     original: $("edit-target").value,
-    password: $("crud-pass").value,
   };
 }
 
 export async function saveAppFromForm() {
   $("crud-error").textContent = "";
   try {
-    await request("/api/apps", { method: "POST", body: JSON.stringify(readAppForm()) });
-    $("crud-pass").value = "";
+    await api("/api/apps", { method: "POST", body: JSON.stringify(readAppForm()) });
     return true;
   } catch (error) {
     $("crud-error").textContent = error.message;
@@ -159,11 +140,7 @@ export async function deleteSelectedApp() {
     return false;
   }
   try {
-    await request("/api/apps", {
-      method: "DELETE",
-      body: JSON.stringify({ nombre, password: $("crud-pass").value }),
-    });
-    $("crud-pass").value = "";
+    await api("/api/apps", { method: "DELETE", body: JSON.stringify({ nombre }) });
     return true;
   } catch (error) {
     $("crud-error").textContent = error.message;

@@ -1,16 +1,17 @@
 # Chat-2026
 
-Portal Nexus-Sec con cuentas compartidas. El diseño sigue en `css/styles.css`. El acceso y el directorio los guarda el servidor.
+Portal Nexus-Sec. El diseño sigue en `css/styles.css`. Cada cuenta entra al crearse y solo ve sus propias aplicaciones.
 
 ```
 index.html          pantalla
 css/styles.css      diseño
 js/                 interfaz
 server/index.js     acceso, directorio y telemetría
+server/security.js  contraseña, sesión y cifrado
 server/db.js        archivo de datos
 ```
 
-La primera cuenta registrada es la administradora. Las siguientes solo consultan.
+La contraseña no se guarda. Los datos de cada usuario van cifrados y no los ve otra cuenta.
 
 ## Render
 

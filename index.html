@@ -35,16 +35,20 @@
       <form id="panel-register" class="panel" role="tabpanel" hidden>
         <label for="reg-user">Nuevo usuario</label>
         <input id="reg-user" name="username" autocomplete="username" required />
+        <p class="hint">De 3 a 32 caracteres: letras, números, punto o guion. Sin espacios.</p>
         <label for="reg-name">Nombre completo</label>
         <input id="reg-name" name="nombre" autocomplete="name" />
         <label for="reg-pass">Contraseña</label>
-        <input id="reg-pass" name="password" type="password" autocomplete="new-password" required minlength="8" />
+        <input id="reg-pass" name="password" type="password" autocomplete="new-password" required />
+        <p class="hint">Mínimo 8 caracteres. Se distinguen mayúsculas y minúsculas.</p>
+        <label for="reg-pass2">Repite la contraseña</label>
+        <input id="reg-pass2" name="confirm" type="password" autocomplete="new-password" required />
         <p id="register-error" class="form-error" role="alert"></p>
         <p id="register-ok" class="form-ok" role="status"></p>
-        <button class="btn-primary" type="submit">Registrarse</button>
+        <button class="btn-primary" type="submit">Crear cuenta</button>
       </form>
 
-      <p class="fine-print">La primera cuenta registrada queda como administradora de este portal.</p>
+      <p class="fine-print">Al crear la cuenta entras directo. Tus datos quedan separados de los demás.</p>
     </section>
   </main>
 
@@ -120,8 +124,6 @@
           </label>
         </div>
 
-        <label for="crud-pass">Contraseña para confirmar</label>
-        <input id="crud-pass" type="password" autocomplete="current-password" />
         <p id="crud-error" class="form-error" role="alert"></p>
         <div class="crud-actions">
           <button class="btn-primary" type="submit">Guardar aplicación</button>
