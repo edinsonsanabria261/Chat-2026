@@ -126,12 +126,17 @@ export function usernameProblem(username) {
   if (typeof username !== "string") {
     return "El usuario debe ser un correo electrónico válido.";
   }
-  if (username.length < 6 || username.length > 254) {
-    return "El usuario debe ser un correo electrónico válido (6 a 254 caracteres).";
+
+  const value = username.trim();
+  if (value.length < 6 || value.length > 254) {
+    return "El usuario debe tener entre 6 y 254 caracteres.";
   }
-  if (!/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)+$/i.test(username)) {
-    return "El usuario debe ser un correo electrónico válido, por ejemplo: nombre@ejemplo.com.";
+
+  const emailPattern = /^(?=.{1,254}$)(?=.{1,64}@)(?!.*\.\.)[a-z0-9](?:[a-z0-9.!#$%&'*+/=?^_`{|}~-]*[a-z0-9])?@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\.)+[a-z]{2,63}$/i;
+  if (!emailPattern.test(value)) {
+    return "El usuario debe ser un correo válido, sin espacios ni puntos dobles: nombre@dominio.com.";
   }
+
   return "";
 }
 
