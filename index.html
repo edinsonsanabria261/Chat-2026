@@ -25,7 +25,7 @@
 
       <form id="panel-login" class="panel" role="tabpanel">
         <label for="login-user">Usuario</label>
-        <input id="login-user" name="username" autocomplete="username" required />
+        <input id="login-user" name="username" type="email" autocomplete="username" required />
         <label for="login-pass">Contraseña</label>
         <input id="login-pass" name="password" type="password" autocomplete="current-password" required />
         <p id="login-error" class="form-error" role="alert"></p>
@@ -34,8 +34,8 @@
 
       <form id="panel-register" class="panel" role="tabpanel" hidden>
         <label for="reg-user">Nuevo usuario</label>
-        <input id="reg-user" name="username" autocomplete="username" required />
-        <p class="hint">De 3 a 32 caracteres: letras, números, punto o guion. Sin espacios.</p>
+        <input id="reg-user" name="username" type="email" autocomplete="username" required />
+        <p class="hint">Introduce un correo electrónico válido, por ejemplo: usuario@ejemplo.com</p>
         <label for="reg-name">Nombre completo</label>
         <input id="reg-name" name="nombre" autocomplete="name" />
         <label for="reg-pass">Contraseña</label>
@@ -55,7 +55,7 @@
   <main id="view-app" class="app-shell" hidden>
     <header class="command">
       <div>
-        <h2>Centro de Comando</h2>
+        <h2>Bienvenido a MarinDrawset</h2>
         <p id="session-line"></p>
       </div>
       <button id="logout" class="btn-ghost" type="button">Cerrar Sesión</button>
