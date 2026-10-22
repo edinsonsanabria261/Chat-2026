@@ -123,8 +123,14 @@ export function usernameKey(value) {
 }
 
 export function usernameProblem(username) {
-  if (!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(username)) {
-    return "El usuario debe tener de 3 a 32 caracteres: letras, números, punto o guion, sin espacios.";
+  if (typeof username !== "string") {
+    return "El usuario debe ser un correo electrónico válido.";
+  }
+  if (username.length < 6 || username.length > 254) {
+    return "El usuario debe ser un correo electrónico válido (6 a 254 caracteres).";
+  }
+  if (!/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)+$/i.test(username)) {
+    return "El usuario debe ser un correo electrónico válido, por ejemplo: nombre@ejemplo.com.";
   }
   return "";
 }
