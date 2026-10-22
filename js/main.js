@@ -12,11 +12,22 @@ function showError(id, error) {
   $(id).textContent = error?.message || error || "No se pudo completar la acción.";
 }
 
+function applyProtectedView(sessionActive) {
+  $("view-login").hidden = sessionActive;
+  $("view-app").hidden = !sessionActive;
+}
+
 async function paintSession() {
   const session = await refreshSession();
-  $("view-login").hidden = Boolean(session);
-  $("view-app").hidden = !session;
-  if (!session) return;
+  applyProtectedView(Boolean(session));
+  if (!session) {
+    showAuthTab("login");
+    $("login-error").textContent = "";
+    $("register-error").textContent = "";
+    $("register-ok").textContent = "";
+    return;
+  }
+
   $("session-line").textContent = `Sesión activa · ${session.nombre} · ${session.rol}`;
   await showPanel("hub");
 }
@@ -42,7 +53,7 @@ $("panel-login").addEventListener("submit", async (event) => {
       return;
     }
     $("login-pass").value = "";
-    paintSession();
+    await paintSession();
   } catch (error) {
     showError("login-error", error);
   }
@@ -78,8 +89,11 @@ $("panel-register").addEventListener("submit", async (event) => {
 });
 
 $("logout").addEventListener("click", async () => {
-  await logoutUser();
-  await paintSession();
+  try {
+    await logoutUser();
+  } finally {
+    await paintSession();
+  }
 });
 
 $("tab-hub").addEventListener("click", () => openPanel("hub"));
@@ -105,4 +119,6 @@ $("delete-app").addEventListener("click", async () => {
   }
 });
 
+applyProtectedView(false);
+showAuthTab("login");
 paintSession();
