@@ -1,61 +1,514 @@
-let session = null;
+import { currentSession, loginUser, logoutUser, refreshSession, registerUser } from "./auth.js";
+import {
+  deleteSelectedApp,
+  saveAppFromForm,
+  showAuthTab,
+  showPanel,
+} from "./portal.js";
 
-function csrfToken() {
-  const part = document.cookie.split("; ").find((row) => row.startsWith("nexus_csrf="));
-  return part ? decodeURIComponent(part.slice("nexus_csrf=".length)) : "";
+const $ = (id) => document.getElementById(id);
+
+function showError(id, error) {
+  $(id).textContent = error?.message || error || "No se pudo completar la acción.";
 }
 
-export async function api(path, options = {}) {
-  const headers = { ...(options.headers || {}) };
-  if (options.body) {
-    headers["Content-Type"] = "application/json";
-    headers["X-CSRF-Token"] = csrfToken();
-  }
-  const response = await fetch(path, {
-    credentials: "same-origin",
-    ...options,
-    headers,
+function clearFormFields(form) {
+  form.querySelectorAll("input, textarea, select").forEach((element) => {
+    if (element.type === "checkbox" || element.type === "radio") {
+      element.checked = false;
+      return;
+    }
+    if (element.tagName === "SELECT") {
+      element.selectedIndex = 0;
+    }
+    element.value = "";
   });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || "No se pudo completar la acción.");
-  return data;
 }
 
-async function request(path, payload) {
+function applyProtectedView(sessionActive) {
+  const loginView = $("view-login");
+  const appView = $("view-app");
+
+  loginView.hidden = sessionActive;
+  appView.hidden = !sessionActive;
+
+  if (sessionActive) {
+    loginView.style.display = "none";
+    appView.style.display = "block";
+  } else {
+    loginView.style.display = "grid";
+    appView.style.display = "none";
+  }
+}
+
+function applyRoleUI() {
+  const user = currentSession();
+  const role = user?.rol || "";
+  const canManage = ["Administrador Principal", "Administrador", "Editor"].includes(role);
+  const crudTab = $("tab-crud");
+  crudTab.disabled = !canManage;
+  crudTab.title = canManage ? "Gestión" : "Solo lectura";
+  crudTab.style.opacity = canManage ? "1" : "0.55";
+
+  if (!canManage && $("panel-crud").getAttribute("aria-selected") === "true") {
+    $("tab-hub").click();
+  }
+}
+
+async function paintSession() {
+  const session = await refreshSession();
+  applyProtectedView(Boolean(session));
+  applyRoleUI();
+
+  if (!session) {
+    showAuthTab("login");
+    $("login-error").textContent = "";
+    $("register-error").textContent = "";
+    $("register-ok").textContent = "";
+    return;
+  }
+
+  $("session-line").textContent = `Sesión activa · ${session.nombre} · ${session.rol}`;
+  await showPanel("hub");
+}
+
+async function openPanel(name) {
   try {
-    const data = await api(path, payload ? { method: "POST", body: JSON.stringify(payload) } : {});
-    return { ok: true, data };
+    const user = currentSession();
+    const role = user?.rol || "";
+    const canManage = ["Administrador Principal", "Administrador", "Editor"].includes(role);
+    if (name === "crud" && !canManage) {
+      $("crud-error").textContent = "No tienes permisos para administrar aplicaciones.";
+      return;
+    }
+    await showPanel(name);
   } catch (error) {
-    return { ok: false, error: error.message };
+    showError("crud-error", error);
   }
 }
 
-export function currentSession() {
-  return session;
-}
+$("tab-login").addEventListener("click", () => showAuthTab("login"));
+$("tab-register").addEventListener("click", () => showAuthTab("register"));
 
-export async function refreshSession() {
+$("panel-login").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  $("login-error").textContent = "";
   try {
-    session = await api("/api/me");
-  } catch {
-    session = null;
+    const result = await loginUser($("login-user").value, $("login-pass").value);
+    if (!result.ok) {
+      $("login-error").textContent = result.error;
+      return;
+    }
+
+    clearFormFields($("panel-login"));
+    $("login-pass").value = "";
+    $("login-user").value = "";
+    applyProtectedView(true);
+    await paintSession();
+  } catch (error) {
+    showError("login-error", error);
   }
-  return session;
-}
+});
 
-export async function registerUser(payload) {
-  const result = await request("/api/register", payload);
-  if (result.ok) session = result.data;
-  return result;
-}
+$("panel-register").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  $("register-error").textContent = "";
+  $("register-ok").textContent = "";
+  try {
+    const password = $("reg-pass").value;
+    const confirm = $("reg-pass2").value;
+    if (password !== confirm) {
+      $("register-error").textContent = "Las contraseñas no coinciden.";
+      return;
+    }
+    const result = await registerUser({
+      username: $("reg-user").value,
+      nombre: $("reg-name").value,
+      password,
+      confirm,
+    });
+    if (!result.ok) {
+      $("register-error").textContent = result.error;
+      return;
+    }
 
-export async function loginUser(username, password) {
-  const result = await request("/api/login", { username, password });
-  if (result.ok) session = result.data;
-  return result;
-}
+    clearFormFields($("panel-register"));
+    $("reg-pass").value = "";
+    $("reg-pass2").value = "";
+    $("reg-user").value = "";
+    $("reg-name").value = "";
+    applyProtectedView(true);
+    await paintSession();
+  } catch (error) {
+    showError("register-error", error);
+  }
+});
 
-export async function logoutUser() {
-  await request("/api/logout", {});
-  session = null;
-}
+$("logout").addEventListener("click", async () => {
+  try {
+    await logoutUser();
+  } finally {
+    clearFormFields($("panel-login"));
+    clearFormFields($("panel-register"));
+    $("login-error").textContent = "";
+    $("register-error").textContent = "";
+    $("register-ok").textContent = "";
+    applyProtectedView(false);
+    showAuthTab("login");
+    await paintSession();
+  }
+});
+
+$("tab-hub").addEventListener("click", () => openPanel("hub"));
+$("tab-crud").addEventListener("click", () => openPanel("crud"));
+$("tab-telemetry").addEventListener("click", () => openPanel("telemetry"));
+$("filter-category").addEventListener("change", () => openPanel("hub"));
+$("edit-target").addEventListener("change", () => openPanel("crud"));
+
+$("form-app").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    if (await saveAppFromForm()) await openPanel("crud");
+  } catch (error) {
+    showError("crud-error", error);
+  }
+});
+
+$("delete-app").addEventListener("click", async () => {
+  try {
+    if (await deleteSelectedApp()) await openPanel("crud");
+  } catch (error) {
+    showError("crud-error", error);
+  }
+});
+
+applyProtectedView(false);
+showAuthTab("login");
+paintSession();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
