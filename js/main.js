@@ -1,3 +1,15 @@
+document.addEventListener("DOMContentLoaded", () => {
+  const inputs = document.querySelectorAll("input, select, textarea");
+  inputs.forEach((field) => {
+    field.addEventListener("focus", () => {
+      field.classList.add("input-glow");
+    });
+    field.addEventListener("blur", () => {
+      field.classList.remove("input-glow");
+    });
+  });
+});
+
 import { loginUser, logoutUser, refreshSession, registerUser } from "./auth.js";
 import {
   deleteSelectedApp,
