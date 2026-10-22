@@ -1,311 +1,468 @@
-import path from "node:path";
-import crypto from "node:crypto";
-import { fileURLToPath } from "node:url";
-import express from "express";
-import { freshVault, updateDb } from "./db.js";
-import {
-  applyHeaders,
-  clearSession,
-  clientIp,
-  csrfOk,
-  deriveVaultKey,
-  forgetVaultKey,
-  hashPassword,
-  hashToken,
-  openVault,
-  passwordMatches,
-  passwordProblem,
-  readCookie,
-  rememberVaultKey,
-  sameOrigin,
-  sealVault,
-  tooManyAttempts,
-  usernameKey,
-  usernameProblem,
-  vaultKeyFor,
-  writeSession,
-} from "./security.js";
-
-const app = express();
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const WEEK = 7 * 24 * 60 * 60 * 1000;
-const LOCK = 15 * 60 * 1000;
-
-app.disable("x-powered-by");
-app.set("trust proxy", 1);
-app.use(express.json({ limit: "32kb" }));
-app.use((_req, res, next) => {
-  applyHeaders(res);
-  next();
-});
-
-function publicUser(username, user) {
-  return { username, nombre: user.nombre, rol: user.rol };
+:root {
+  --red-1: #ff4d6d;
+  --red-2: #8b5cf6;
+  --red-3: #f43f5e;
+  --ink: #07111f;
+  --card: rgba(15, 23, 42, 0.72);
+  --card-strong: rgba(15, 23, 42, 0.9);
+  --text: #e2e8f0;
+  --text-soft: #94a3b8;
+  --line: rgba(148, 163, 184, 0.2);
+  --line-light: rgba(148, 163, 184, 0.35);
+  --sky: #38bdf8;
+  --sky-strong: #22d3ee;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --bad: #f87171;
+  --canvas: #020817;
+  --canvas-2: #0f172a;
+  --white: #ffffff;
+  --radius: 18px;
+  --shadow: 0 20px 50px rgba(11, 17, 31, 0.6);
+  font-family: "Segoe UI", "Inter", "SF Pro Display", system-ui, sans-serif;
 }
 
-function findUser(db, username) {
-  if (db.users[username]) return { key: username, user: db.users[username] };
-  const found = Object.keys(db.users).find((name) => name.toLowerCase() === username);
-  return found ? { key: found, user: db.users[found] } : { key: username, user: null };
+* { box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
 }
 
-function sessionOf(db, req) {
-  const token = readCookie(req, "nexus_sid");
-  if (!token) return null;
-  const id = hashToken(token);
-  const session = db.sessions[id];
-  if (!session || session.expires < Date.now()) return null;
-  if (!db.users[session.username]) return null;
-  if (!vaultKeyFor(id)) return null;
-  return { ...session, id };
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.16), transparent 25%),
+    radial-gradient(circle at bottom right, rgba(139, 92, 246, 0.2), transparent 30%),
+    linear-gradient(135deg, var(--canvas) 0%, #0b1120 45%, #111827 100%);
+  color: var(--text);
 }
 
-function openSession(db, username) {
-  const token = crypto.randomBytes(32).toString("base64url");
-  const csrf = crypto.randomBytes(32).toString("base64url");
-  db.sessions[hashToken(token)] = { username, csrf, expires: Date.now() + WEEK };
-  return { token, csrf };
+h1, h2, h3, h4, p { margin: 0; }
+
+button, input, select, textarea { font: inherit; }
+
+button { cursor: pointer; }
+
+input, select, textarea {
+  width: 100%;
+  margin-top: 0.4rem;
+  padding: 0.8rem 0.95rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.75);
+  color: var(--text);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease, transform 0.2s ease;
 }
 
-function requireUser(req, db) {
-  if (!sameOrigin(req)) return { error: "Solicitud rechazada.", status: 403 };
-  const session = sessionOf(db, req);
-  if (!session) return { error: "Sin sesión.", status: 401 };
-  if (!csrfOk(req, session)) return { error: "La protección de la sesión caducó. Vuelve a entrar.", status: 403 };
-  return { session, user: publicUser(session.username, db.users[session.username]) };
+input::placeholder,
+textarea::placeholder {
+  color: rgba(148, 163, 184, 0.8);
 }
 
-app.get("/api/me", (req, res) => {
-  updateDb((db) => {
-    const session = sessionOf(db, req);
-    if (!session) return null;
-    if (!session.csrf) session.csrf = crypto.randomBytes(32).toString("base64url");
-    return { session, user: publicUser(session.username, db.users[session.username]) };
-  }).then((result) => {
-    if (!result) return res.status(401).json({ error: "Sin sesión." });
-    writeSession(res, { token: readCookie(req, "nexus_sid"), csrf: result.session.csrf });
-    res.json(result.user);
-  }).catch(() => res.status(500).json({ error: "No se pudo leer la sesión." }));
-});
+textarea { resize: vertical; }
 
-app.post("/api/register", (req, res) => {
-  if (!sameOrigin(req)) return res.status(403).json({ error: "Solicitud rechazada." });
-  if (tooManyAttempts(`reg:${clientIp(req)}`, 8, 10 * 60 * 1000)) {
-    return res.status(429).json({ error: "Demasiados intentos. Espera unos minutos." });
+label {
+  display: block;
+  margin-top: 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(226, 232, 240, 0.85);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
+
+.login-layout {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1.12fr;
+  gap: 1.75rem;
+  align-items: center;
+  padding: clamp(1rem, 4vw, 3.5rem);
+}
+
+.hero {
+  background: linear-gradient(135deg, rgba(255, 77, 109, 0.18), rgba(139, 92, 246, 0.18));
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  backdrop-filter: blur(10px);
+  color: white;
+  border-radius: var(--radius);
+  padding: 2.4rem;
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, rgba(34, 211, 238, 0.12), transparent 40%, rgba(255, 77, 109, 0.12));
+  pointer-events: none;
+}
+
+.eyebrow {
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.8);
+  margin-bottom: 0.8rem;
+}
+
+.hero h1 {
+  font-size: clamp(2rem, 3vw, 3rem);
+  font-weight: 800;
+  line-height: 1.1;
+  margin: 0.5rem 0 1rem;
+  letter-spacing: -0.04em;
+}
+
+.hero-copy {
+  font-size: 0.98rem;
+  line-height: 1.7;
+  color: rgba(255,255,255,0.82);
+}
+
+.auth-card, .panel-block, .command {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 18px;
+  padding: 1.5rem;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 14px 40px rgba(2, 6, 23, 0.5);
+}
+
+.auth-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-card::before,
+.panel-block::before,
+.command::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.04), rgba(139, 92, 246, 0.03), transparent 60%);
+  pointer-events: none;
+}
+
+.auth-card > *, .panel-block > *, .command > * {
+  position: relative;
+  z-index: 1;
+}
+
+.auth-card h2 {
+  font-size: clamp(1.5rem, 2vw, 1.8rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.muted { color: var(--text-soft); margin-top: 0.35rem; font-size: 0.92rem; }
+
+.tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin: 1.2rem 0 0.8rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  padding-bottom: 0.25rem;
+}
+
+.tabs button {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 0.75rem 1rem;
+  color: var(--text-soft);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: all 0.25s ease;
+}
+
+.tabs button[aria-selected="true"] {
+  color: #f8fafc;
+  border-bottom-color: rgba(56, 189, 248, 0.9);
+  background: rgba(56, 189, 248, 0.06);
+}
+
+.btn-primary, .btn-danger, .btn-ghost, .open-link {
+  border-radius: 12px;
+  padding: 0.82rem 1rem;
+  font-weight: 700;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease, border-color 0.25s ease;
+}
+
+.btn-primary {
+  width: 100%;
+  margin-top: 1rem;
+  background: linear-gradient(135deg, #ff4d6d 0%, #8b5cf6 35%, #22d3ee 100%);
+  color: white;
+  border: 0;
+  box-shadow: 0 12px 24px rgba(139, 92, 246, 0.35);
+}
+
+.btn-primary:hover,
+.btn-danger:hover,
+.btn-ghost:hover,
+.open-link:hover {
+  transform: translateY(-1px) scale(1.01);
+  filter: brightness(1.08);
+}
+
+.btn-primary:active,
+.btn-danger:active,
+.btn-ghost:active,
+.open-link:active {
+  transform: scale(0.99);
+}
+
+.btn-danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: #fca5a5;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+}
+
+.btn-ghost {
+  background: rgba(148, 163, 184, 0.08);
+  color: var(--on-dark);
+  border: 1px solid var(--line);
+}
+
+.form-error, .form-ok {
+  min-height: 1.2rem;
+  margin: 0.8rem 0 0;
+  font-size: 0.9rem;
+}
+
+.form-error { color: #fca5a5; }
+.form-ok { color: #86efac; }
+
+.hint {
+  margin-top: 0.35rem;
+  font-size: 0.76rem;
+  color: var(--text-soft);
+  line-height: 1.5;
+}
+
+.fine-print {
+  margin-top: 1rem;
+  text-align: center;
+  font-size: 0.74rem;
+  color: var(--text-soft);
+}
+
+.input-glow {
+  border-color: rgba(34, 211, 238, 0.9) !important;
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.45), 0 0 18px rgba(34, 211, 238, 0.18) !important;
+  background: rgba(15, 23, 42, 0.9) !important;
+}
+
+.app-shell {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 1.25rem;
+}
+
+.command {
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  color: var(--on-dark);
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.command p { color: var(--text-soft); margin-top: 0.3rem; font-size: 0.85rem; }
+
+.panel-head, .form-row, .crud-actions {
+  display: flex;
+  gap: 0.8rem;
+  align-items: end;
+  justify-content: space-between;
+}
+
+.form-row label, .filter { flex: 1; }
+
+.filter { font-size: 0.85rem; font-weight: 700; min-width: 180px; color: var(--text-soft); }
+
+.hub-toolbar {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 0.8rem;
+  margin: 1rem 0 0.8rem;
+}
+
+.filter-field {
+  display: block;
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.app-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+
+.app-card {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 12px;
+  padding: 15px;
+  color: var(--white);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  box-shadow: 0 12px 22px rgba(2, 6, 23, 0.28);
+}
+
+.app-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.app-card h4 { font-size: 1rem; }
+.app-card .version { color: var(--sky); font-size: 0.75rem; font-weight: 700; }
+.app-card p { color: rgba(226, 232, 240, 0.8); font-size: 0.85rem; }
+.app-card .meta { font-size: 0.75rem; color: var(--ok); }
+.app-card .meta.warn { color: var(--warn); }
+.app-card .meta.bad { color: var(--bad); }
+.app-extra {
+  color: var(--text-soft) !important;
+  font-size: 0.75rem !important;
+}
+
+.favorite {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  background: rgba(148, 163, 184, 0.08);
+  color: #fbbf24;
+}
+
+.favorite.active { background: rgba(251, 191, 36, 0.12); }
+
+.priority-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  background: rgba(56, 189, 248, 0.08);
+  color: var(--sky);
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.68rem;
+  background: rgba(139, 92, 246, 0.12);
+  color: #d8b4fe;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.open-link {
+  margin-top: 0.5rem;
+  background: rgba(30, 41, 59, 0.9);
+  color: white;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.metric {
+  background: rgba(15, 23, 42, 0.8);
+  color: var(--white);
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  padding: 1rem;
+}
+
+.metric span { display: block; color: rgba(148, 163, 184, 0.9); font-size: 0.8rem; }
+.metric strong { display: block; margin-top: 0.35rem; font-size: 1.4rem; }
+
+.empty {
+  grid-column: 1 / -1;
+  color: var(--text-soft);
+  padding: 1rem 0;
+}
+
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.checkbox-field input {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0;
+}
+
+@media (max-width: 800px) {
+  .login-layout, .app-grid, .metrics, .form-row, .command, .panel-head {
+    grid-template-columns: 1fr;
+    display: grid;
   }
-  const username = usernameKey(req.body?.username);
-  const nombre = String(req.body?.nombre || "").trim().slice(0, 80);
-  const password = String(req.body?.password || "");
-  const confirm = String(req.body?.confirm || "");
-  const userError = usernameProblem(username);
-  if (userError) return res.status(400).json({ error: userError });
-  const passError = passwordProblem(password);
-  if (passError) return res.status(400).json({ error: passError });
-  if (password !== confirm) return res.status(400).json({ error: "Las contraseñas no coinciden." });
 
-  hashPassword(password).then(async (secret) => {
-    const vaultSalt = crypto.randomBytes(16).toString("base64url");
-    const vaultKey = await deriveVaultKey(password, vaultSalt);
-    return updateDb((db) => {
-      if (findUser(db, username).user) return { error: "Ese usuario ya existe.", status: 409 };
-      db.users[username] = {
-        nombre: nombre || username,
-        rol: Object.keys(db.users).length === 0 ? "Administrador Principal" : "Usuario",
-        algo: secret.algo,
-        salt: secret.salt,
-        hash: secret.hash,
-        vaultSalt,
-        failed: 0,
-        lockedUntil: 0,
-      };
-      const opened = openSession(db, username);
-      db.vaults[username] = sealVault(vaultKey, freshVault());
-      rememberVaultKey(hashToken(opened.token), vaultKey);
-      return { session: opened, user: publicUser(username, db.users[username]) };
-    });
-  }).then((result) => {
-    if (result.error) return res.status(result.status || 400).json({ error: result.error });
-    writeSession(res, result.session);
-    res.status(201).json(result.user);
-  }).catch(() => res.status(500).json({ error: "No se pudo crear la cuenta." }));
-});
-
-app.post("/api/login", (req, res) => {
-  if (!sameOrigin(req)) return res.status(403).json({ error: "Solicitud rechazada." });
-  const ip = clientIp(req);
-  if (tooManyAttempts(`login:${ip}`, 10, 10 * 60 * 1000)) {
-    return res.status(429).json({ error: "Demasiados intentos. Espera unos minutos." });
+  .hub-toolbar {
+    grid-template-columns: 1fr;
   }
-  const username = usernameKey(req.body?.username);
-  const password = String(req.body?.password || "");
-  updateDb(async (db) => {
-    const found = findUser(db, username);
-    if (found.user?.lockedUntil > Date.now()) {
-      return { error: "Demasiados intentos. Espera unos minutos.", status: 429 };
-    }
-    const matches = await passwordMatches(password, found.user);
-    if (!found.user || !matches) {
-      if (found.user) {
-        found.user.failed = (found.user.failed || 0) + 1;
-        if (found.user.failed >= 5) {
-          found.user.lockedUntil = Date.now() + LOCK;
-          found.user.failed = 0;
-        }
-      }
-      return { error: "Usuario o contraseña incorrectos.", status: 401 };
-    }
-    found.user.failed = 0;
-    found.user.lockedUntil = 0;
-    if (!found.user.vaultSalt) found.user.vaultSalt = crypto.randomBytes(16).toString("base64url");
-    const vaultKey = await deriveVaultKey(password, found.user.vaultSalt);
-    const blob = db.vaults[found.key];
-    if (!blob?.v) db.vaults[found.key] = sealVault(vaultKey, blob?.apps ? blob : freshVault());
-    for (const [key, session] of Object.entries(db.sessions)) {
-      if (session.username === found.key) {
-        forgetVaultKey(key);
-        delete db.sessions[key];
-      }
-    }
-    const opened = openSession(db, found.key);
-    rememberVaultKey(hashToken(opened.token), vaultKey);
-    return { session: opened, user: publicUser(found.key, found.user) };
-  }).then((result) => {
-    if (result.error) return res.status(result.status || 401).json({ error: result.error });
-    writeSession(res, result.session);
-    res.json(result.user);
-  }).catch(() => res.status(500).json({ error: "No se pudo entrar." }));
-});
 
-app.post("/api/logout", (req, res) => {
-  updateDb((db) => {
-    const session = sessionOf(db, req);
-    if (session && csrfOk(req, session)) {
-      forgetVaultKey(session.id);
-      delete db.sessions[session.id];
-    }
-  }).then(() => {
-    clearSession(res);
-    res.json({ ok: true });
-  }).catch(() => res.status(500).json({ error: "No se pudo cerrar la sesión." }));
-});
-
-function readVault(db, session) {
-  const key = vaultKeyFor(session.id);
-  const blob = db.vaults[session.username];
-  if (!blob?.v) return freshVault();
-  return openVault(key, blob);
+  .command, .panel-head { align-items: stretch; }
+  .btn-ghost, .crud-actions { width: 100%; }
+  .crud-actions { display: grid; }
 }
 
-function saveVault(db, session, vault) {
-  db.vaults[session.username] = sealVault(vaultKeyFor(session.id), vault);
-}
-
-app.get("/api/apps", (req, res) => {
-  updateDb((db) => {
-    const session = sessionOf(db, req);
-    if (!session) return { error: "Sin sesión.", status: 401 };
-    return { apps: readVault(db, session).apps };
-  }).then((result) => {
-    if (result.error) return res.status(result.status).json({ error: result.error });
-    res.json(result.apps);
-  }).catch(() => res.status(500).json({ error: "No se pudo leer el directorio." }));
-});
-
-function cleanApp(body) {
-  const nombre = String(body?.nombre || "").trim();
-  let url = "";
-  try {
-    const parsed = new URL(String(body?.url || "").trim());
-    if (parsed.protocol === "https:" || parsed.protocol === "http:") url = parsed.href;
-  } catch {
-    url = "";
+@media (max-width: 480px) {
+  .app-shell {
+    padding: 0.8rem;
   }
-  const descripcion = String(body?.descripcion || "").trim();
-  const categorias = ["Ciberseguridad", "Forense", "Utilidades", "Automatización"];
-  const permisos = ["Libre", "Limitado", "Restringido"];
-  const estados = ["Activa", "Mantenimiento", "Bloqueada"];
-  const categoria = categorias.includes(body?.categoria) ? body.categoria : "";
-  const permiso = permisos.includes(body?.permiso) ? body.permiso : "";
-  const estado = estados.includes(body?.estado) ? body.estado : "";
-  const version = String(body?.version || "v1.0.0").trim().slice(0, 20);
-  if (!nombre || nombre.length > 80) return { error: "El nombre de la aplicación es obligatorio." };
-  if (!url) return { error: "La URL debe empezar por http o https." };
-  if (!descripcion || descripcion.length > 500) return { error: "La descripción es obligatoria." };
-  if (!categoria || !permiso || !estado || !version) return { error: "Revisa categoría, permiso, estado y versión." };
-  return { nombre, app: { url, descripcion, categoria, permiso, estado, version } };
+
+  .auth-card, .panel-block, .command {
+    padding: 1rem;
+  }
 }
 
-app.post("/api/apps", (req, res) => {
-  const cleaned = cleanApp(req.body);
-  if (cleaned.error) return res.status(400).json({ error: cleaned.error });
-  updateDb((db) => {
-    const auth = requireUser(req, db);
-    if (auth.error) return auth;
-    let vault;
-    try {
-      vault = readVault(db, auth.session);
-    } catch {
-      return { error: "No se pudieron abrir tus datos. Vuelve a entrar.", status: 401 };
-    }
-    const apps = vault.apps;
-    const original = String(req.body?.original || "");
-    if (original && original !== cleaned.nombre) delete apps[original];
-    apps[cleaned.nombre] = cleaned.app;
-    saveVault(db, auth.session, vault);
-    return { ok: true };
-  }).then((result) => {
-    if (result.error) return res.status(result.status || 400).json({ error: result.error });
-    res.json({ ok: true });
-  }).catch(() => res.status(500).json({ error: "No se pudo guardar." }));
-});
-
-app.delete("/api/apps", (req, res) => {
-  const nombre = String(req.body?.nombre || "").trim();
-  if (!nombre) return res.status(400).json({ error: "Elige una aplicación para eliminarla." });
-  updateDb((db) => {
-    const auth = requireUser(req, db);
-    if (auth.error) return auth;
-    let vault;
-    try {
-      vault = readVault(db, auth.session);
-    } catch {
-      return { error: "No se pudieron abrir tus datos. Vuelve a entrar.", status: 401 };
-    }
-    const apps = vault.apps;
-    if (!apps[nombre]) return { error: "Esa aplicación ya no está.", status: 404 };
-    delete apps[nombre];
-    saveVault(db, auth.session, vault);
-    return { ok: true };
-  }).then((result) => {
-    if (result.error) return res.status(result.status || 400).json({ error: result.error });
-    res.json({ ok: true });
-  }).catch(() => res.status(500).json({ error: "No se pudo eliminar." }));
-});
-
-app.get("/api/telemetry", (req, res) => {
-  updateDb((db) => {
-    const session = sessionOf(db, req);
-    if (!session) return { error: "Sin sesión.", status: 401 };
-    const apps = Object.values(readVault(db, session).apps);
-    return {
-      counts: {
-        Total: apps.length,
-        Activas: apps.filter((item) => item.estado === "Activa").length,
-        Mantenimiento: apps.filter((item) => item.estado === "Mantenimiento").length,
-        Bloqueadas: apps.filter((item) => item.estado === "Bloqueada").length,
-      },
-    };
-  }).then((result) => {
-    if (result.error) return res.status(result.status).json({ error: result.error });
-    res.json(result.counts);
-  }).catch(() => res.status(500).json({ error: "No se pudo leer la telemetría." }));
-});
-
-app.use("/css", express.static(path.join(root, "css")));
-app.use("/js", express.static(path.join(root, "js")));
-app.get("/", (_req, res) => res.sendFile(path.join(root, "index.html")));
-
-const port = Number(process.env.PORT) || 8080;
-app.listen(port, "0.0.0.0", () => {
-  console.log(`Chat-2026 escuchando en ${port}`);
-});
