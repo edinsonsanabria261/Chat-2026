@@ -58,8 +58,57 @@
         <h2>Bienvenido a MarinDrawset</h2>
         <p id="session-line"></p>
       </div>
-      <button id="logout" class="btn-ghost" type="button">Cerrar Sesión</button>
+      <div class="header-actions">
+        <button id="account-button" class="btn-ghost" type="button">Cuenta</button>
+        <button id="logout" class="btn-ghost" type="button">Cerrar Sesión</button>
+      </div>
     </header>
+
+    <div id="account-menu" class="account-menu" aria-hidden="true">
+      <div class="account-panel" role="dialog" aria-modal="true" aria-labelledby="account-menu-title">
+        <div class="account-panel-header">
+          <div>
+            <p class="eyebrow small">Configuración</p>
+            <h3 id="account-menu-title">Cuenta y Seguridad</h3>
+          </div>
+          <button id="close-account-menu" class="close-menu" type="button" aria-label="Cerrar configuración">×</button>
+        </div>
+
+        <div class="account-tabs">
+          <button type="button" class="account-tab active" data-account-tab="password">Cambiar Contraseña</button>
+          <button type="button" class="account-tab" data-account-tab="profile">Administrar Cuenta</button>
+        </div>
+
+        <div id="account-password-panel" class="account-panel-body active">
+          <form id="account-password-form" class="account-form">
+            <label for="current-password">Contraseña actual</label>
+            <input id="current-password" name="currentPassword" type="password" placeholder="••••••••" required />
+
+            <label for="new-password">Nueva contraseña</label>
+            <input id="new-password" name="newPassword" type="password" placeholder="Mínimo 8 caracteres" required />
+
+            <label for="confirm-password">Confirmar nueva contraseña</label>
+            <input id="confirm-password" name="confirmPassword" type="password" placeholder="Repite la nueva contraseña" required />
+
+            <p id="password-status" class="field-status" aria-live="polite"></p>
+            <button type="submit" class="btn-primary compact">Actualizar contraseña</button>
+          </form>
+        </div>
+
+        <div id="account-profile-panel" class="account-panel-body">
+          <form id="account-profile-form" class="account-form">
+            <label for="profile-name">Nombre</label>
+            <input id="profile-name" name="name" type="text" placeholder="Tu nombre" />
+
+            <label for="profile-email">Usuario / Correo</label>
+            <input id="profile-email" name="email" type="email" placeholder="usuario@ejemplo.com" />
+
+            <p id="profile-status" class="field-status" aria-live="polite"></p>
+            <button type="submit" class="btn-primary compact">Guardar perfil</button>
+          </form>
+        </div>
+      </div>
+    </div>
 
     <div class="tabs" role="tablist" aria-label="Portal">
       <button type="button" id="tab-hub" role="tab" aria-selected="true">App Hub</button>
@@ -72,7 +121,7 @@
         <h3>Directorio de aplicaciones</h3>
         <label class="filter">
           Categoría
-          <select id="filter-category"></select>
+          <select id="filter-category" class="dark-select"></select>
         </label>
       </div>
       <div id="app-grid" class="app-grid"></div>
@@ -83,7 +132,7 @@
       <p id="crud-note" class="muted"></p>
       <form id="form-app" class="crud-form">
         <label for="edit-target">Aplicación</label>
-        <select id="edit-target"></select>
+        <select id="edit-target" class="dark-select"></select>
 
         <label for="app-name">Nombre</label>
         <input id="app-name" required />
@@ -96,15 +145,15 @@
 
         <div class="form-row">
           <label>Categoría
-            <select id="app-cat">
-              <option>Ciberseguridad</option>
-              <option>Forense</option>
-              <option>Utilidades</option>
-              <option>Automatización</option>
+            <select id="app-cat" class="dark-select">
+              <option>OSINT / Reconocimiento</option>
+              <option>Auditoría Web</option>
+              <option>Análisis de Redes</option>
+              <option>Herramientas de IA</option>
             </select>
           </label>
           <label>Permiso
-            <select id="app-permiso">
+            <select id="app-permiso" class="dark-select">
               <option>Libre</option>
               <option>Limitado</option>
               <option>Restringido</option>
@@ -113,7 +162,7 @@
         </div>
         <div class="form-row">
           <label>Estado
-            <select id="app-estado">
+            <select id="app-estado" class="dark-select">
               <option>Activa</option>
               <option>Mantenimiento</option>
               <option>Bloqueada</option>
@@ -126,7 +175,7 @@
 
         <p id="crud-error" class="form-error" role="alert"></p>
         <div class="crud-actions">
-          <button class="btn-primary" type="submit">Guardar aplicación</button>
+          <button class="btn-primary compact" type="submit">Guardar aplicación</button>
           <button id="delete-app" class="btn-danger" type="button">Eliminar</button>
         </div>
       </form>
