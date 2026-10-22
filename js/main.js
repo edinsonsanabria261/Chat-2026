@@ -1,15 +1,3 @@
-document.addEventListener("DOMContentLoaded", () => {
-  const inputs = document.querySelectorAll("input, select, textarea");
-  inputs.forEach((field) => {
-    field.addEventListener("focus", () => {
-      field.classList.add("input-glow");
-    });
-    field.addEventListener("blur", () => {
-      field.classList.remove("input-glow");
-    });
-  });
-});
-
 import { loginUser, logoutUser, refreshSession, registerUser } from "./auth.js";
 import {
   deleteSelectedApp,
@@ -24,14 +12,39 @@ function showError(id, error) {
   $(id).textContent = error?.message || error || "No se pudo completar la acción.";
 }
 
+function clearFormFields(form) {
+  form.querySelectorAll("input, textarea, select").forEach((element) => {
+    if (element.type === "checkbox" || element.type === "radio") {
+      element.checked = false;
+      return;
+    }
+    if (element.tagName === "SELECT") {
+      element.selectedIndex = 0;
+    }
+    element.value = "";
+  });
+}
+
 function applyProtectedView(sessionActive) {
-  $("view-login").hidden = sessionActive;
-  $("view-app").hidden = !sessionActive;
+  const loginView = $("view-login");
+  const appView = $("view-app");
+
+  loginView.hidden = sessionActive;
+  appView.hidden = !sessionActive;
+
+  if (sessionActive) {
+    loginView.style.display = "none";
+    appView.style.display = "block";
+  } else {
+    loginView.style.display = "grid";
+    appView.style.display = "none";
+  }
 }
 
 async function paintSession() {
   const session = await refreshSession();
   applyProtectedView(Boolean(session));
+
   if (!session) {
     showAuthTab("login");
     $("login-error").textContent = "";
@@ -64,7 +77,11 @@ $("panel-login").addEventListener("submit", async (event) => {
       $("login-error").textContent = result.error;
       return;
     }
+
+    clearFormFields($("panel-login"));
     $("login-pass").value = "";
+    $("login-user").value = "";
+    applyProtectedView(true);
     await paintSession();
   } catch (error) {
     showError("login-error", error);
@@ -92,8 +109,13 @@ $("panel-register").addEventListener("submit", async (event) => {
       $("register-error").textContent = result.error;
       return;
     }
+
+    clearFormFields($("panel-register"));
     $("reg-pass").value = "";
     $("reg-pass2").value = "";
+    $("reg-user").value = "";
+    $("reg-name").value = "";
+    applyProtectedView(true);
     await paintSession();
   } catch (error) {
     showError("register-error", error);
@@ -104,6 +126,13 @@ $("logout").addEventListener("click", async () => {
   try {
     await logoutUser();
   } finally {
+    clearFormFields($("panel-login"));
+    clearFormFields($("panel-register"));
+    $("login-error").textContent = "";
+    $("register-error").textContent = "";
+    $("register-ok").textContent = "";
+    applyProtectedView(false);
+    showAuthTab("login");
     await paintSession();
   }
 });
