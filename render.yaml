@@ -7,7 +7,7 @@ services:
     branch: main
     buildCommand: yarn
     startCommand: yarn start
-    healthCheckPath: /
+    healthCheckPath: /health
     envVars:
       - key: NODE_VERSION
         value: "20"
