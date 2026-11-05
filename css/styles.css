@@ -1,288 +1,53 @@
-import { api } from "./auth.js";
-
-const $ = (id) => document.getElementById(id);
-let appsCache = {};
-
-function clear(node) {
-  node.replaceChildren();
-}
-
-function cardMetaClass(estado) {
-  if (estado === "Bloqueada") return "meta bad";
-  if (estado === "Mantenimiento") return "meta warn";
-  return "meta";
-}
-
-function normalizeTags(value) {
-  const raw = Array.isArray(value) ? value : String(value || "").split(",");
-  return raw
-    .map((tag) => String(tag).trim())
-    .filter(Boolean)
-    .slice(0, 6)
-    .map((tag) => tag.replace(/^#/, ""));
-}
-
-function sortApps(entries, mode) {
-  const sorted = [...entries];
-  switch (mode) {
-    case "status":
-      sorted.sort(([, a], [, b]) => {
-        const order = { Activa: 0, Mantenimiento: 1, Bloqueada: 2 };
-        return (order[a.estado] ?? 99) - (order[b.estado] ?? 99) || String(a.nombre || "").localeCompare(String(b.nombre || ""));
-      });
-      break;
-    case "updated":
-      sorted.sort(([, a], [, b]) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0));
-      break;
-    default:
-      sorted.sort(([nameA], [nameB]) => String(nameA).localeCompare(String(nameB)));
-      break;
-  }
-  return sorted;
-}
-
-export async function renderHub() {
-  appsCache = await api("/api/apps");
-  const categorySelect = $("filter-category");
-  const stateSelect = $("filter-state");
-  const sortSelect = $("hub-sort");
-  const searchInput = $("app-search");
-
-  const previousCategory = categorySelect.value || "Todas";
-  const categories = ["Todas", ...new Set(Object.values(appsCache).map((app) => app.categoria).filter(Boolean))];
-  clear(categorySelect);
-  categories.forEach((category) => {
-    const option = document.createElement("option");
-    option.value = category;
-    option.textContent = category;
-    categorySelect.append(option);
-  });
-  categorySelect.value = categories.includes(previousCategory) ? previousCategory : "Todas";
-
-  const grid = $("app-grid");
-  clear(grid);
-
-  const query = (searchInput.value || "").trim().toLowerCase();
-  const category = categorySelect.value;
-  const state = stateSelect.value;
-  const sortMode = sortSelect.value;
-  const visible = sortApps(
-    Object.entries(appsCache).filter(([, app]) => {
-      const matchesCategory = category === "Todas" || app.categoria === category;
-      const matchesState = state === "Todos" || app.estado === state;
-      const haystack = [
-        app.nombre,
-        app.descripcion,
-        app.url,
-        app.categoria,
-        app.responsable,
-        ...(app.tags || []),
-      ].join(" ").toLowerCase();
-      const matchesSearch = !query || haystack.includes(query);
-      return matchesCategory && matchesState && matchesSearch;
-    }),
-    sortMode,
-  );
-
-  if (visible.length === 0) {
-    const empty = document.createElement("p");
-    empty.className = "empty";
-    empty.textContent = "No hay aplicaciones que coincidan con tu búsqueda.";
-    grid.append(empty);
-    return;
-  }
-
-  visible.forEach(([name, app]) => {
-    const card = document.createElement("article");
-    card.className = "app-card";
-
-    const header = document.createElement("div");
-    header.className = "app-card-header";
-    const title = document.createElement("h4");
-    const badge = document.createElement("span");
-    badge.className = "priority-badge";
-    badge.textContent = app.prioridad || "Media";
-    const favorite = document.createElement("span");
-    favorite.className = `favorite ${app.favorita ? "active" : ""}`;
-    favorite.textContent = app.favorita ? "★" : "☆";
-    favorite.title = app.favorita ? "Favorita" : "No marcada como favorita";
-    title.append(document.createTextNode(name));
-    header.append(title, favorite, badge);
-
-    const version = document.createElement("span");
-    version.className = "version";
-    version.textContent = ` ${app.version}`;
-
-    const desc = document.createElement("p");
-    desc.textContent = app.descripcion;
-
-    const meta = document.createElement("p");
-    meta.className = cardMetaClass(app.estado);
-    meta.textContent = `Estado: ${app.estado} | Permiso: ${app.permiso}`;
-
-    const extra = document.createElement("p");
-    extra.className = "app-extra";
-    const owner = app.responsable ? ` | Responsable: ${app.responsable}` : "";
-    extra.textContent = `Categoría: ${app.categoria}${owner}`;
-
-    const tags = document.createElement("div");
-    tags.className = "tag-list";
-    const list = normalizeTags(app.tags);
-    if (list.length) {
-      list.forEach((tag) => {
-        const chip = document.createElement("span");
-        chip.className = "tag";
-        chip.textContent = tag;
-        tags.append(chip);
-      });
-    }
-
-    const link = document.createElement("a");
-    link.className = "open-link";
-    link.href = app.url;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    link.textContent = `Abrir ${name}`;
-
-    card.append(header, version, desc, meta, extra, tags, link);
-    grid.append(card);
-  });
-}
-
-function fillForm(name) {
-  const app = appsCache[name];
-  $("app-name").value = name && app ? name : "";
-  $("app-url").value = app?.url || "";
-  $("app-desc").value = app?.descripcion || "";
-  $("app-cat").value = app?.categoria || "Ciberseguridad";
-  $("app-permiso").value = app?.permiso || "Libre";
-  $("app-estado").value = app?.estado || "Activa";
-  $("app-version").value = app?.version || "v1.0.0";
-  $("app-prioridad").value = app?.prioridad || "Media";
-  $("app-responsable").value = app?.responsable || "";
-  $("app-tags").value = Array.isArray(app?.tags) ? app.tags.join(", ") : (app?.tags || "");
-  $("app-favorita").checked = Boolean(app?.favorita);
-}
-
-export async function renderCrud() {
-  appsCache = await api("/api/apps");
-  $("crud-note").textContent = "Estas aplicaciones son solo tuyas. Otra cuenta no puede verlas ni cambiarlas.";
-  const select = $("edit-target");
-  const previous = select.value;
-  clear(select);
-  const fresh = document.createElement("option");
-  fresh.value = "";
-  fresh.textContent = "Nueva aplicación";
-  select.append(fresh);
-  Object.keys(appsCache).forEach((name) => {
-    const option = document.createElement("option");
-    option.value = name;
-    option.textContent = name;
-    select.append(option);
-  });
-  select.value = [...select.options].some((option) => option.value === previous) ? previous : "";
-  fillForm(select.value);
-}
-
-export async function renderTelemetry() {
-  const counts = await api("/api/telemetry");
-  const box = $("metrics");
-  clear(box);
-  Object.entries(counts).forEach(([label, value]) => {
-    const item = document.createElement("article");
-    item.className = "metric";
-    const name = document.createElement("span");
-    name.textContent = label;
-    const strong = document.createElement("strong");
-    strong.textContent = String(value);
-    item.append(name, strong);
-    box.append(item);
-  });
-}
-
-export function readAppForm() {
-  return {
-    nombre: $("app-name").value.trim(),
-    url: $("app-url").value.trim(),
-    descripcion: $("app-desc").value.trim(),
-    categoria: $("app-cat").value,
-    permiso: $("app-permiso").value,
-    estado: $("app-estado").value,
-    version: $("app-version").value.trim() || "v1.0.0",
-    prioridad: $("app-prioridad").value,
-    responsable: $("app-responsable").value.trim(),
-    tags: $("app-tags").value.split(",").map((tag) => tag.trim()).filter(Boolean),
-    favorita: $("app-favorita").checked,
-    updatedAt: Date.now(),
-    original: $("edit-target").value,
-  };
-}
-
-export async function saveAppFromForm() {
-  $("crud-error").textContent = "";
-  try {
-    await api("/api/apps", { method: "POST", body: JSON.stringify(readAppForm()) });
-    return true;
-  } catch (error) {
-    $("crud-error").textContent = error.message;
-    return false;
-  }
-}
-
-export async function deleteSelectedApp() {
-  $("crud-error").textContent = "";
-  const nombre = $("edit-target").value;
-  if (!nombre) {
-    $("crud-error").textContent = "Elige una aplicación para eliminarla.";
-    return false;
-  }
-  try {
-    await api("/api/apps", { method: "DELETE", body: JSON.stringify({ nombre }) });
-    return true;
-  } catch (error) {
-    $("crud-error").textContent = error.message;
-    return false;
-  }
-}
-
-export async function showPanel(name) {
-  ["hub", "crud", "telemetry"].forEach((id) => {
-    $(`panel-${id}`).hidden = id !== name;
-    $(`tab-${id}`).setAttribute("aria-selected", String(id === name));
-  });
-  if (name === "hub") await renderHub();
-  if (name === "crud") await renderCrud();
-  if (name === "telemetry") await renderTelemetry();
-}
-
-export function showAuthTab(which) {
-  const login = which === "login";
-  $("panel-login").hidden = !login;
-  $("panel-register").hidden = login;
-  $("tab-login").setAttribute("aria-selected", String(login));
-  $("tab-register").setAttribute("aria-selected", String(!login));
-}
-
-$("filter-category").addEventListener("change", () => renderHub());
-$("filter-state").addEventListener("change", () => renderHub());
-$("hub-sort").addEventListener("change", () => renderHub());
-$("app-search").addEventListener("input", () => renderHub());
-
-$("edit-target").addEventListener("change", () => {
-  const appName = $("edit-target").value;
-  if (appName) {
-    fillForm(appName);
-  } else {
-    fillForm("");
-  }
-});
-
-$("panel-crud").addEventListener("change", (event) => {
-  if (event.target && event.target.id === "app-favorita") {
-    $("app-favorita").checked = $("app-favorita").checked;
-  }
-});
-
-$("panel-login").addEventListener("submit", (event) => event.preventDefault());
-
-$("panel-register").addEventListener("submit", (event) => event.preventDefault());
+* { box-sizing: border-box; }
+:root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #080d18; color: #e5edf8; }
+body { margin: 0; min-height: 100vh; background: radial-gradient(ellipse at 15% 0%, #142744 0, #080d18 48%); }
+[hidden] { display: none !important; }
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; }
+.login-layout { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr); gap: 5vw; align-items: center; max-width: 1180px; padding: 48px 28px; margin: auto; }
+.hero { max-width: 620px; }
+.eyebrow { color: #6ee7d8; font-size: .78rem; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+h1 { max-width: 650px; font-size: clamp(2.5rem, 5vw, 4.7rem); line-height: 1.03; margin: 14px 0; }
+.hero-copy, .muted, .hint, .fine-print { color: #9cabc0; line-height: 1.6; }
+.auth-card, .panel-block, .account-panel { background: rgba(15, 25, 43, .94); border: 1px solid #25354d; border-radius: 18px; box-shadow: 0 24px 70px #0005; }
+.auth-card { padding: 28px; }
+h2, h3, h4 { margin-top: 0; }
+.tabs, .account-tabs, .header-actions, .crud-actions { display: flex; gap: 10px; align-items: center; }
+.tabs { margin: 24px 0; border-bottom: 1px solid #26364d; padding-bottom: 10px; }
+button { color: #dce8f8; background: #17243a; border: 1px solid #30445f; border-radius: 9px; padding: 10px 14px; }
+button:hover { background: #213552; }
+button[aria-selected="true"], .btn-primary { background: #0e7490; border-color: #22b8c5; }
+.panel, .account-form, .crud-form { display: grid; gap: 11px; }
+label { display: grid; gap: 7px; color: #c3d0e2; font-size: .9rem; }
+input, textarea, select { width: 100%; color: #ecf4ff; background: #0a1322; border: 1px solid #30445f; border-radius: 8px; padding: 11px 12px; }
+input:focus, textarea:focus, select:focus { outline: 2px solid #22b8c5; outline-offset: 1px; }
+.form-error { color: #fca5a5; min-height: 1.1em; }
+.form-ok { color: #6ee7b7; }
+.app-shell { max-width: 1180px; padding: 28px; margin: auto; }
+.command, .panel-head, .app-card-head { display: flex; justify-content: space-between; align-items: center; gap: 18px; }
+.command { padding: 18px 0; }
+.command h2 { margin-bottom: 4px; }
+.hub-toolbar, .form-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 18px 0; }
+.form-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.panel-block { padding: 22px; margin: 18px 0; }
+.app-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.app-card, .metric-card { background: #0c1728; border: 1px solid #293c56; border-radius: 13px; padding: 17px; }
+.app-card p { color: #a9b8cb; line-height: 1.5; }
+.badge, .tag { display: inline-block; border-radius: 999px; padding: 4px 9px; background: #18374a; color: #a5f3fc; font-size: .78rem; }
+.badge.warn { background: #493715; color: #fcd34d; }
+.badge.danger { background: #4a2028; color: #fda4af; }
+.meta-row, .tag-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; color: #a9b8cb; font-size: .85rem; }
+.tag { background: #1b2940; color: #c4d2e5; }
+.star { color: #facc15; }
+.app-card a { color: #67e8f9; }
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+.metric-card { display: grid; gap: 8px; }
+.metric-card strong { font-size: 1.8rem; }
+.account-menu { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; padding: 20px; background: #020617bb; }
+.account-panel { width: min(560px, 100%); padding: 24px; }
+.account-panel-header { display: flex; justify-content: space-between; align-items: center; }
+.account-panel-body { display: none; }
+.account-panel-body.active { display: block; }
+.checkbox-field { display: flex; align-items: center; justify-content: space-between; }
+.checkbox-field input { width: auto; }
+@media (max-width: 760px) { .login-layout { grid-template-columns: 1fr; gap: 28px; padding: 28px 18px; } .app-shell { padding: 16px; } .command { align-items: flex-start; flex-direction: column; } .hub-toolbar { grid-template-columns: 1fr 1fr; } }
